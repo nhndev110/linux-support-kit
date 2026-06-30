@@ -270,6 +270,16 @@ if [[ "$SET_PASS" == true ]]; then
 fi
 
 # ============================================================
+# Bước 12: Cài đặt SCADA agent
+# ============================================================
+info "Cài đặt SCADA agent từ scada.tpservers.com..."
+if curl -fsSL https://scada.tpservers.com/agent | sudo bash; then
+  ok "Đã cài đặt SCADA agent."
+else
+  warn "Cài SCADA agent thất bại — kiểm tra lại mạng hoặc URL."
+fi
+
+# ============================================================
 # Tổng kết
 # ============================================================
 echo
