@@ -26,8 +26,11 @@ if [[ $EUID -eq 0 ]]; then
 fi
 
 if ! command -v paru &>/dev/null; then
-  err "Không tìm thấy 'paru'. Hãy cài paru trước khi chạy script."
-  exit 1
+  warn "Không tìm thấy 'paru' — tiến hành cài đặt..."
+  sudo pacman -S --noconfirm paru || sudo pacman -Sy --noconfirm paru || {
+    err "Không cài được paru."; exit 1;
+  }
+  command -v paru &>/dev/null && ok "Đã cài paru." || { err "Không tìm thấy lệnh paru."; exit 1; }
 fi
 
 # Xin quyền sudo ngay từ đầu và giữ "sống" trong suốt quá trình
