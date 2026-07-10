@@ -232,7 +232,8 @@ apt update
 # linux-image-* đổi → 'upgrade' sẽ GIỮ LẠI kernel cũ, còn 'full-upgrade' mới cài
 # kernel mới. Nếu để lệch, headers (kéo về theo kernel mới nhất) sẽ không khớp
 # kernel đang chạy → DKMS build module cho kernel không boot vào → nvidia-smi lỗi.
-apt -y full-upgrade
+
+# apt -y full-upgrade
 ok "Đã cập nhật hệ thống."
 
 # ============================================================
