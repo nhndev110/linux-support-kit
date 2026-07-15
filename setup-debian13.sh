@@ -396,6 +396,29 @@ ok "Đã restart xrdp."
 # Bước 10: Cấu hình IP tĩnh (tùy chọn) — qua nmcli
 # ============================================================
 info "Bước 10/13: Cấu hình IP tĩnh..."
+
+# ---------- Hiển thị cấu hình mạng HIỆN TẠI (trước khi đổi) ----------
+echo
+info "Cấu hình mạng hiện tại:"
+if command -v ip &>/dev/null; then
+  echo "  • Interface & địa chỉ IP:"
+  ip -brief address show 2>/dev/null | grep -v '^lo ' | sed 's/^/      /' \
+    || ip a 2>/dev/null | sed 's/^/      /'
+  echo "  • Default gateway:"
+  ip route show default 2>/dev/null | sed 's/^/      /' \
+    || echo "      (không có default route)"
+fi
+echo "  • DNS đang dùng:"
+if command -v resolvectl &>/dev/null; then
+  resolvectl status 2>/dev/null | grep -i 'DNS Server' | sed 's/^/      /' || true
+fi
+[[ -r /etc/resolv.conf ]] && grep -E '^\s*nameserver' /etc/resolv.conf 2>/dev/null | sed 's/^/      /' || true
+if command -v nmcli &>/dev/null; then
+  echo "  • NetworkManager (connection đang active):"
+  nmcli -t -f NAME,DEVICE,TYPE connection show --active 2>/dev/null | sed 's/^/      /' || true
+fi
+echo
+
 if [[ "$STATIC_IP" == true ]]; then
   DNS_ALL="$DNS"
   [[ -n "${DNS2:-}" ]] && DNS_ALL="$DNS,$DNS2"
