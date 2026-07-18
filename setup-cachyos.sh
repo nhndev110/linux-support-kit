@@ -69,6 +69,25 @@ done
 
 # ---------- A3: IP tĩnh (tùy chọn) ----------
 echo
+info "Cấu hình mạng hiện tại:"
+# Địa chỉ IP + interface (bỏ qua loopback)
+while IFS= read -r line; do
+  echo "  IP       : $line"
+done < <(ip -brief -4 addr show scope global 2>/dev/null | awk '$1!="lo"{print $1" -> "$3}')
+# Gateway mặc định
+CUR_GW="$(ip route show default 2>/dev/null | awk '/default/{print $3; exit}')"
+echo "  Gateway  : ${CUR_GW:-(không có)}"
+# DNS hiện tại (ưu tiên resolvectl, sau đó nmcli, cuối cùng /etc/resolv.conf)
+if command -v resolvectl &>/dev/null; then
+  CUR_DNS="$(resolvectl dns 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')"
+fi
+[[ -z "${CUR_DNS:-}" ]] && command -v nmcli &>/dev/null && \
+  CUR_DNS="$(nmcli -g IP4.DNS device show 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')"
+[[ -z "${CUR_DNS:-}" ]] && \
+  CUR_DNS="$(awk '/^nameserver/{print $2}' /etc/resolv.conf 2>/dev/null | paste -sd' ')"
+echo "  DNS      : ${CUR_DNS:-(không có)}"
+echo
+
 read -rp "Cấu hình IP tĩnh không? [y/N]: " ANS
 STATIC_IP=false
 if [[ "${ANS,,}" == "y" ]]; then
