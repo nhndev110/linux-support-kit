@@ -53,18 +53,25 @@ XRDP_PORT=${XRDP_PORT:-3389}
 # ---------- A2: Chọn Desktop Environment ----------
 echo
 echo "Chọn Desktop Environment cho phiên XRDP:"
-PS3="Nhập số lựa chọn [Enter = mặc định KDE Plasma (X11)]: "
+# Menu read (không dùng 'select') vì 'select' khi nhấn Enter chỉ in lại menu,
+# không hỗ trợ "Enter = giá trị mặc định".
+echo "  1) KDE Plasma (X11)   (mặc định)"
+echo "  2) GNOME"
+echo "  3) XFCE"
+echo "  4) Cosmic"
+echo "  5) Tự nhập lệnh khác"
 SESSION_CMD=""
-select de in "KDE Plasma (X11)" "GNOME" "XFCE" "Cosmic" "Tự nhập lệnh khác"; do
-  # Nhấn Enter (bỏ trống) => mặc định KDE Plasma
-  [[ -z "$REPLY" ]] && de="KDE Plasma (X11)"
-  case "$de" in
-    "KDE Plasma (X11)") SESSION_CMD="exec startplasma-x11"; break;;
-    "GNOME")            SESSION_CMD="exec gnome-session";   break;;
-    "XFCE")             SESSION_CMD="exec startxfce4";      break;;
-    "Cosmic")           SESSION_CMD="exec start-cosmic";    break;;
-    "Tự nhập lệnh khác")
-        read -rp "Nhập lệnh exec (vd: exec i3): " SESSION_CMD; break;;
+while true; do
+  read -rp "Nhập số lựa chọn [Enter = 1 (KDE Plasma)]: " DE_CHOICE
+  DE_CHOICE="${DE_CHOICE:-1}"
+  case "$DE_CHOICE" in
+    1) SESSION_CMD="exec startplasma-x11"; break;;
+    2) SESSION_CMD="exec gnome-session";   break;;
+    3) SESSION_CMD="exec startxfce4";      break;;
+    4) SESSION_CMD="exec start-cosmic";    break;;
+    5) read -rp "Nhập lệnh exec (vd: exec i3): " SESSION_CMD
+       if [[ -z "$SESSION_CMD" ]]; then warn "Lệnh trống — thử lại."; continue; fi
+       break;;
     *) warn "Lựa chọn không hợp lệ, thử lại.";;
   esac
 done
@@ -115,26 +122,27 @@ if [[ "${ANS,,}" == "y" ]]; then
   ADDR="${ADDR%/*}/24"
   info "Netmask cố định: 255.255.255.0 (/24) → $ADDR"
   read -rp "Gateway (vd 192.168.1.1): " GW
+  # Menu read (không dùng 'select') vì 'select' khi nhấn Enter chỉ in lại menu,
+  # không hỗ trợ "Enter = giá trị mặc định".
   echo
   echo "Chọn nhóm DNS:"
-  PS3="Nhập số lựa chọn [Enter = mặc định Google]: "
+  echo "  1) Google      (8.8.8.8 / 8.8.4.4)   (mặc định)"
+  echo "  2) Cloudflare  (1.1.1.1 / 1.0.0.1)"
+  echo "  3) Viettel     (203.113.131.1 / .2)"
+  echo "  4) VNPT        (203.162.4.190 / .191)"
+  echo "  5) Tự nhập tay"
   DNS=""; DNS2=""
-  select dns_group in "Viettel (203.113.131.1 / .2)" \
-                      "VNPT (203.162.4.190 / .191)" \
-                      "Google (8.8.8.8 / 8.8.4.4)" \
-                      "Cloudflare (1.1.1.1 / 1.0.0.1)" \
-                      "Tự nhập tay"; do
-    # Nhấn Enter (bỏ trống) => mặc định Google
-    [[ -z "$REPLY" ]] && dns_group="Google (8.8.8.8 / 8.8.4.4)"
-    case "$dns_group" in
-      "Viettel"*)    DNS="203.113.131.1"; DNS2="203.113.131.2"; break;;
-      "VNPT"*)       DNS="203.162.4.190"; DNS2="203.162.4.191"; break;;
-      "Google"*)     DNS="8.8.8.8";       DNS2="8.8.4.4";       break;;
-      "Cloudflare"*) DNS="1.1.1.1";       DNS2="1.0.0.1";       break;;
-      "Tự nhập tay")
-          read -rp "Preferred DNS (vd 8.8.8.8): " DNS
-          read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
-          break;;
+  while true; do
+    read -rp "Nhập số lựa chọn [Enter = 1 (Google)]: " DNS_CHOICE
+    DNS_CHOICE="${DNS_CHOICE:-1}"
+    case "$DNS_CHOICE" in
+      1) DNS="8.8.8.8";       DNS2="8.8.4.4";       break;;
+      2) DNS="1.1.1.1";       DNS2="1.0.0.1";       break;;
+      3) DNS="203.113.131.1"; DNS2="203.113.131.2"; break;;
+      4) DNS="203.162.4.190"; DNS2="203.162.4.191"; break;;
+      5) read -rp "Preferred DNS (vd 8.8.8.8): " DNS
+         read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
+         break;;
       *) warn "Lựa chọn không hợp lệ, thử lại.";;
     esac
   done
