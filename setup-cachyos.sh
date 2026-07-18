@@ -53,9 +53,11 @@ XRDP_PORT=${XRDP_PORT:-3389}
 # ---------- A2: Chọn Desktop Environment ----------
 echo
 echo "Chọn Desktop Environment cho phiên XRDP:"
-PS3="Nhập số lựa chọn: "
+PS3="Nhập số lựa chọn [Enter = mặc định KDE Plasma (X11)]: "
 SESSION_CMD=""
 select de in "KDE Plasma (X11)" "GNOME" "XFCE" "Cosmic" "Tự nhập lệnh khác"; do
+  # Nhấn Enter (bỏ trống) => mặc định KDE Plasma
+  [[ -z "$REPLY" ]] && de="KDE Plasma (X11)"
   case "$de" in
     "KDE Plasma (X11)") SESSION_CMD="exec startplasma-x11"; break;;
     "GNOME")            SESSION_CMD="exec gnome-session";   break;;
@@ -113,8 +115,30 @@ if [[ "${ANS,,}" == "y" ]]; then
   ADDR="${ADDR%/*}/24"
   info "Netmask cố định: 255.255.255.0 (/24) → $ADDR"
   read -rp "Gateway (vd 192.168.1.1): " GW
-  read -rp "Preferred DNS (vd 8.8.8.8): " DNS
-  read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
+  echo
+  echo "Chọn nhóm DNS:"
+  PS3="Nhập số lựa chọn [Enter = mặc định Google]: "
+  DNS=""; DNS2=""
+  select dns_group in "Viettel (203.113.131.1 / .2)" \
+                      "VNPT (203.162.4.190 / .191)" \
+                      "Google (8.8.8.8 / 8.8.4.4)" \
+                      "Cloudflare (1.1.1.1 / 1.0.0.1)" \
+                      "Tự nhập tay"; do
+    # Nhấn Enter (bỏ trống) => mặc định Google
+    [[ -z "$REPLY" ]] && dns_group="Google (8.8.8.8 / 8.8.4.4)"
+    case "$dns_group" in
+      "Viettel"*)    DNS="203.113.131.1"; DNS2="203.113.131.2"; break;;
+      "VNPT"*)       DNS="203.162.4.190"; DNS2="203.162.4.191"; break;;
+      "Google"*)     DNS="8.8.8.8";       DNS2="8.8.4.4";       break;;
+      "Cloudflare"*) DNS="1.1.1.1";       DNS2="1.0.0.1";       break;;
+      "Tự nhập tay")
+          read -rp "Preferred DNS (vd 8.8.8.8): " DNS
+          read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
+          break;;
+      *) warn "Lựa chọn không hợp lệ, thử lại.";;
+    esac
+  done
+  info "DNS đã chọn: $DNS${DNS2:+ , $DNS2}"
 fi
 
 # ---------- A4: Đặt lại mật khẩu cho user + root ----------

@@ -163,6 +163,28 @@ ok "Desktop Environment: $SESSION_CMD"
 
 # ---------- A4: IP tĩnh (tùy chọn) ----------
 echo
+info "Cấu hình mạng hiện tại:"
+# Địa chỉ IP + interface (bỏ qua loopback)
+if command -v ip &>/dev/null; then
+  while IFS= read -r line; do
+    echo "  IP       : $line"
+  done < <(ip -brief -4 addr show scope global 2>/dev/null | awk '$1!="lo"{print $1" -> "$3}')
+  # Gateway mặc định
+  CUR_GW="$(ip route show default 2>/dev/null | awk '/default/{print $3; exit}')"
+  echo "  Gateway  : ${CUR_GW:-(không có)}"
+fi
+# DNS hiện tại (ưu tiên resolvectl, sau đó nmcli, cuối cùng /etc/resolv.conf)
+CUR_DNS=""
+if command -v resolvectl &>/dev/null; then
+  CUR_DNS="$(resolvectl dns 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')"
+fi
+[[ -z "${CUR_DNS:-}" ]] && command -v nmcli &>/dev/null && \
+  CUR_DNS="$(nmcli -g IP4.DNS device show 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')"
+[[ -z "${CUR_DNS:-}" ]] && \
+  CUR_DNS="$(awk '/^nameserver/{print $2}' /etc/resolv.conf 2>/dev/null | paste -sd' ')"
+echo "  DNS      : ${CUR_DNS:-(không có)}"
+echo
+
 read -rp "Cấu hình IP tĩnh không? [y/N]: " ANS
 STATIC_IP=false
 if [[ "${ANS,,}" == "y" ]]; then
@@ -191,8 +213,30 @@ if [[ "${ANS,,}" == "y" ]]; then
     ADDR="${ADDR%/*}/24"
     info "Netmask cố định: 255.255.255.0 (/24) → $ADDR"
     read -rp "Gateway (vd 192.168.1.1): " GW
-    read -rp "Preferred DNS (vd 8.8.8.8): " DNS
-    read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
+    echo
+    echo "Chọn nhóm DNS:"
+    PS3="Nhập số lựa chọn [Enter = mặc định Google]: "
+    DNS=""; DNS2=""
+    select dns_group in "Viettel (203.113.131.1 / .2)" \
+                        "VNPT (203.162.4.190 / .191)" \
+                        "Google (8.8.8.8 / 8.8.4.4)" \
+                        "Cloudflare (1.1.1.1 / 1.0.0.1)" \
+                        "Tự nhập tay"; do
+      # Nhấn Enter (bỏ trống) => mặc định Google
+      [[ -z "$REPLY" ]] && dns_group="Google (8.8.8.8 / 8.8.4.4)"
+      case "$dns_group" in
+        "Viettel"*)    DNS="203.113.131.1"; DNS2="203.113.131.2"; break;;
+        "VNPT"*)       DNS="203.162.4.190"; DNS2="203.162.4.191"; break;;
+        "Google"*)     DNS="8.8.8.8";       DNS2="8.8.4.4";       break;;
+        "Cloudflare"*) DNS="1.1.1.1";       DNS2="1.0.0.1";       break;;
+        "Tự nhập tay")
+            read -rp "Preferred DNS (vd 8.8.8.8): " DNS
+            read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
+            break;;
+        *) warn "Lựa chọn không hợp lệ, thử lại.";;
+      esac
+    done
+    info "DNS đã chọn: $DNS${DNS2:+ , $DNS2}"
   fi
 fi
 
