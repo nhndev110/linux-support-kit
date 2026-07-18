@@ -4,37 +4,9 @@ Tài liệu tra cứu nhanh các lệnh xử lý sự cố trên máy chủ Linu
 
 ---
 
-## Script Setup Nhanh OS
+## Script Setup Nhanh OS — Script làm những gì?
 
-### CachyOS
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nhndev110/tpserver-support-kit/refs/heads/main/setup-cachyos.sh -o setup-cachyos.sh && chmod +x setup-cachyos.sh && ./setup-cachyos.sh
-```
-
-### Debian
-
-Đặt mật khẩu cho `root` rồi chuyển sang phiên `root`:
-
-```bash
-sudo passwd root
-```
-
-```bash
-su -
-```
-
-Tải và chạy script cài đặt (dùng `curl` hoặc `wget`):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/nhndev110/tpserver-support-kit/refs/heads/main/setup-debian13.sh -o setup-debian13.sh && chmod +x setup-debian13.sh && ./setup-debian13.sh
-```
-
-```bash
-wget -qO setup-debian13.sh https://raw.githubusercontent.com/nhndev110/tpserver-support-kit/refs/heads/main/setup-debian13.sh && chmod +x setup-debian13.sh && ./setup-debian13.sh
-```
-
-### Script làm những gì?
+> 💡 Lệnh tải & chạy script (CachyOS / Debian) xem tại [README.md](README.md).
 
 Cả hai script biến một máy vừa cài OS thành máy chủ remote desktop (XRDP) dùng ngay được. Đầu tiên script hỏi gọn một lượt cấu hình (port, desktop, IP tĩnh, mật khẩu), sau đó tự động chạy toàn bộ các bước còn lại, cuối cùng tự xóa file script và khởi động lại máy.
 
