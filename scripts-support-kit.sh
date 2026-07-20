@@ -47,6 +47,45 @@ configure_dns_nm() {
 }
 
 # ---------------------------------------------------------------------------
+# 2) Xóa sạch ổ đĩa NVMe (nguy hiểm)
+# ---------------------------------------------------------------------------
+wipe_nvme() {
+    local DISK ANSWER
+
+    echo "Các ổ đĩa hiện có:"
+    lsblk -d -o NAME,SIZE,MODEL
+
+    read -rp $'\nNhập tên ổ cần xóa (VD nvme0n1): ' DISK
+    [ -z "$DISK" ] && { echo "Chưa nhập tên ổ, hủy."; return 1; }
+    [ ! -b "/dev/$DISK" ] && { echo "/dev/$DISK không tồn tại, hủy."; return 1; }
+
+    echo "⚠️  Toàn bộ dữ liệu trên /dev/$DISK sẽ bị XÓA và KHÔNG THỂ khôi phục."
+    read -rp "Gõ đúng tên ổ '$DISK' để xác nhận: " ANSWER
+    [ "$ANSWER" != "$DISK" ] && { echo "Không khớp, đã hủy."; return 1; }
+
+    sudo swapoff -a
+    sudo vgchange -an
+    sudo dmsetup remove_all
+    sudo wipefs -a "/dev/$DISK"
+    sudo sgdisk --zap-all "/dev/$DISK"
+    echo "✔ Đã xóa sạch /dev/$DISK."
+}
+
+# ---------------------------------------------------------------------------
+# 3) Đổi mật khẩu cho user hiện tại và root
+# ---------------------------------------------------------------------------
+change_passwords() {
+    local NEWPASS
+
+    read -rp "Nhập mật khẩu mới cho '$USER' và root: " NEWPASS
+    [ -z "$NEWPASS" ] && { echo "Mật khẩu rỗng, hủy."; return 1; }
+
+    printf '%s:%s\n%s:%s\n' "$USER" "$NEWPASS" root "$NEWPASS" | sudo chpasswd \
+        && echo "✔ Đã đổi mật khẩu cho '$USER' và root." \
+        || echo "✘ Đổi mật khẩu thất bại."
+}
+
+# ---------------------------------------------------------------------------
 # TODO: Bổ sung các chức năng khác tại đây
 # ---------------------------------------------------------------------------
 
@@ -60,7 +99,8 @@ show_menu() {
         SUPPORT KIT — Linux Server
 ============================================
   1) Cấu hình DNS (NetworkManager)
-  2) ...
+  2) Xóa sạch ổ đĩa NVMe (nguy hiểm)
+  3) Đổi mật khẩu user + root
   q) Thoát
 ============================================
 EOF
@@ -73,8 +113,9 @@ main() {
         echo
         case "$CHOICE" in
             1) configure_dns_nm; pause ;;
-            2) # TODO: thêm chức năng mới ở đây
-               ;;
+            2) wipe_nvme; pause ;;
+            3) change_passwords; pause ;;
+            # TODO: thêm chức năng mới ở đây
             q) echo "Thoát."; break ;;
             *) echo "Lựa chọn không hợp lệ. Vui lòng thử lại." ;;
         esac

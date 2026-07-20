@@ -6,16 +6,17 @@ Tài liệu tra cứu nhanh các lệnh xử lý sự cố trên máy chủ Linu
 
 ## Support Kit — Menu xử lý sự cố
 
-Tải và chạy script menu (gồm cấu hình DNS và các chức năng bổ sung sau):
+> 💡 Lệnh tải & chạy script menu xem tại [README.md](README.md#support-kit--menu-xử-lý-sự-cố).
 
-```bash
-curl -fsSL -o /tmp/support-kit.sh https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/scripts-support-kit.sh
-bash /tmp/support-kit.sh
-```
+Các chức năng có trong `scripts-support-kit.sh`:
+
+1. **Cấu hình DNS (NetworkManager)** — chọn nhóm DNS có sẵn (Google, Cloudflare, Viettel, VNPT) hoặc tự nhập, rồi áp vào interface đang online.
+2. **Xóa sạch ổ đĩa NVMe** — tắt swap, gỡ LVM/device-mapper, xóa chữ ký & bảng phân vùng (có xác nhận tên ổ). ⚠️ Xóa toàn bộ dữ liệu, không thể khôi phục.
+3. **Đổi mật khẩu user + root** — đặt mật khẩu mới cùng lúc cho user hiện tại và `root`.
 
 ---
 
-## Xóa sạch ổ đĩa NVMe (trước khi cài lại)
+## Xóa sạch ổ đĩa NVMe
 
 Tắt swap, gỡ LVM/device-mapper rồi xóa toàn bộ chữ ký và bảng phân vùng trên ổ `nvme0n1`.
 

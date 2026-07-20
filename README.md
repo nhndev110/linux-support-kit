@@ -1,4 +1,4 @@
-# Support Kit
+# Linux Support Kit
 
 Bộ script và tài liệu hỗ trợ cài đặt, cấu hình nhanh máy chủ Linux.
 
@@ -6,7 +6,7 @@ Xem thêm các lệnh xử lý sự cố tại [Support-Linux.md](Support-Linux.
 
 ---
 
-## Script Setup Nhanh OS
+## Script Setup Nhanh Linux
 
 ### CachyOS
 
@@ -37,3 +37,14 @@ wget -qO setup-debian13.sh https://raw.githubusercontent.com/nhndev110/linux-sup
 ```
 
 > 💡 Xem chi tiết **script làm những gì** tại [Support-Linux.md](Support-Linux.md#script-setup-nhanh-os--script-làm-những-gì).
+
+---
+
+## Support Kit — Menu xử lý sự cố
+
+Tải và chạy script menu (gồm cấu hình DNS và các chức năng bổ sung sau):
+
+```bash
+curl -fsSL -o /tmp/support-kit.sh https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/scripts-support-kit.sh
+bash /tmp/support-kit.sh
+```
