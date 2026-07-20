@@ -60,7 +60,8 @@ show_menu() {
         SUPPORT KIT — Linux Server
 ============================================
   1) Cấu hình DNS (NetworkManager)
-  exit) Thoát
+  2) ...
+  q) Thoát
 ============================================
 EOF
 }
@@ -72,8 +73,9 @@ main() {
         echo
         case "$CHOICE" in
             1) configure_dns_nm; pause ;;
-            # TODO: thêm case cho các chức năng mới ở đây
-            exit | q | 0) echo "Thoát."; break ;;
+            2) # TODO: thêm chức năng mới ở đây
+               ;;
+            q) echo "Thoát."; break ;;
             *) echo "Lựa chọn không hợp lệ. Vui lòng thử lại." ;;
         esac
     done
