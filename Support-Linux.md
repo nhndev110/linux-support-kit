@@ -86,6 +86,16 @@ Theo dõi log của dịch vụ theo thời gian thực (Ctrl+C để thoát):
 sudo journalctl -fu accops-client
 ```
 
+### Trạng thái phiên (session states)
+
+- **assigned** — tổng số phiên (account/task) được cấp cho máy này.
+- **active** — số phiên đang chạy bình thường.
+- **launching** — đang trong quá trình khởi động, chưa vào trạng thái active.
+- **face** — phiên bị khoá bởi xác minh khuôn mặt (face ID). Hệ thống phía server yêu cầu xác thực sinh trắc nên phiên dừng lại, không tự chạy tiếp được.
+- **captcha** — phiên bị chặn bởi captcha, chờ giải.
+- **idle** — phiên không chạy: đã được cấp nhưng hiện không làm gì (chưa start, hết việc, hoặc bị tạm dừng).
+- **backoff** — phiên bị "kẹt": request không đi được nên client giãn thời gian thử lại (exponential backoff). Vấn đề là trong lúc đó request mới vẫn dồn vào, tạo hàng đợi.
+
 ---
 
 ## Tắt máy và khởi động lại
@@ -99,5 +109,5 @@ sudo shutdown -h now
 Khởi động lại máy ngay lập tức:
 
 ```bash
-sudo reboot
+sudo reboot now
 ```
