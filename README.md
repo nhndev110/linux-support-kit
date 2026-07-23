@@ -34,7 +34,7 @@ wget -qO setup-debian13.sh https://raw.githubusercontent.com/nhndev110/linux-sup
 
 ## Menu xử lý sự cố
 
-Tải và chạy script menu (gồm cấu hình DNS và các chức năng bổ sung sau):
+Tải và chạy script menu:
 
 ```bash
 curl -fsSL -o /tmp/support-kit.sh https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/scripts-support-kit.sh
