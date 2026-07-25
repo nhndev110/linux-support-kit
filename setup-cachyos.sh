@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# setup-xrdp.sh — Tự động cài đặt & cấu hình XRDP trên Arch Linux (dùng paru)
+# setup-cachyos.sh — Tự động cài đặt & cấu hình XRDP trên Arch Linux (dùng paru)
 #
 # Cách dùng:
-#   chmod +x setup-xrdp.sh
-#   ./setup-xrdp.sh          <-- chạy bằng USER THƯỜNG, KHÔNG dùng sudo/root
+#   chmod +x setup-cachyos.sh
+#   ./setup-cachyos.sh       <-- chạy bằng USER THƯỜNG, KHÔNG dùng sudo/root
 #
 # Lý do không chạy bằng root: paru build gói AUR (xrdp, xorgxrdp) và từ chối
 # chạy dưới quyền root. Script sẽ tự gọi sudo ở các bước cần quyền hệ thống.
@@ -18,6 +18,33 @@ info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 ok()   { echo -e "${GREEN}[OK]${NC}   $*"; }
 warn() { echo -e "${YELLOW}[!]${NC}    $*"; }
 err()  { echo -e "${RED}[LỖI]${NC}  $*" >&2; }
+
+# ---------- Hàm kiểm tra dữ liệu nhập ----------
+# Đúng dạng IPv4: 4 octet, mỗi octet 0-255, không có số 0 thừa ở đầu (010 dễ nhầm bát phân)
+is_ipv4() {
+  local ip="$1" o
+  [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+  for o in ${ip//./ }; do
+    (( 10#$o >= 0 && 10#$o <= 255 )) || return 1
+    [[ "$o" != "0" && "$o" =~ ^0 ]] && return 1
+  done
+  return 0
+}
+
+# Hỏi cho tới khi nhập được một IPv4 hợp lệ; kết quả gán vào biến có tên $2
+read_ipv4() {
+  local prompt="$1" varname="$2" value
+  while true; do
+    read -rp "$prompt" value || { err "Không đọc được dữ liệu nhập (EOF)."; exit 1; }
+    value="${value// /}"          # bỏ khoảng trắng thừa
+    value="${value%/*}"           # bỏ phần /prefix nếu người dùng lỡ gõ (vd 192.168.1.10/24)
+    if is_ipv4 "$value"; then
+      printf -v "$varname" '%s' "$value"
+      return 0
+    fi
+    warn "Giá trị '${value}' không phải IPv4 hợp lệ — nhập dạng x.x.x.x, mỗi số từ 0 đến 255."
+  done
+}
 
 # ---------- Kiểm tra điều kiện ----------
 if [[ $EUID -eq 0 ]]; then
@@ -53,8 +80,8 @@ XRDP_PORT=${XRDP_PORT:-3389}
 # ---------- A2: Chọn Desktop Environment ----------
 echo
 echo "Chọn Desktop Environment cho phiên XRDP:"
-# Menu read (không dùng 'select') vì 'select' khi nhấn Enter chỉ in lại menu,
-# không hỗ trợ "Enter = giá trị mặc định".
+# Các menu trong script đều dùng 'read' chứ không dùng 'select', vì 'select' khi
+# nhấn Enter chỉ in lại menu — không hỗ trợ "Enter = giá trị mặc định".
 echo "  1) KDE Plasma (X11)   (mặc định)"
 echo "  2) GNOME"
 echo "  3) XFCE"
@@ -81,11 +108,11 @@ echo
 info "Cấu hình mạng hiện tại:"
 # Địa chỉ IP + interface (bỏ qua loopback)
 while IFS= read -r line; do
-  echo "  IP       : $line"
+  echo "  • IP: $line"
 done < <(ip -brief -4 addr show scope global 2>/dev/null | awk '$1!="lo"{print $1" -> "$3}')
 # Gateway mặc định
 CUR_GW="$(ip route show default 2>/dev/null | awk '/default/{print $3; exit}')"
-echo "  Gateway  : ${CUR_GW:-(không có)}"
+echo "  • Gateway: ${CUR_GW:-(không có)}"
 # DNS hiện tại (ưu tiên resolvectl, sau đó nmcli, cuối cùng /etc/resolv.conf)
 if command -v resolvectl &>/dev/null; then
   CUR_DNS="$(resolvectl dns 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')"
@@ -94,14 +121,14 @@ fi
   CUR_DNS="$(nmcli -g IP4.DNS device show 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')"
 [[ -z "${CUR_DNS:-}" ]] && \
   CUR_DNS="$(awk '/^nameserver/{print $2}' /etc/resolv.conf 2>/dev/null | paste -sd' ')"
-echo "  DNS      : ${CUR_DNS:-(không có)}"
+echo "  • DNS: ${CUR_DNS:-(không có)}"
 echo
 
 read -rp "Cấu hình IP tĩnh không? [y/N]: " ANS
 STATIC_IP=false
 if [[ "${ANS,,}" == "y" ]]; then
   STATIC_IP=true
-  
+
   # Tự lấy connection đang active (gắn với thiết bị thật)
   mapfile -t ACTIVE_CONS < <(nmcli -t -f NAME,DEVICE connection show --active | awk -F: '$2!="" && $2!="lo"{print $1}')
 
@@ -117,13 +144,15 @@ if [[ "${ANS,,}" == "y" ]]; then
       [[ -n "$c" ]] && { CON="$c"; break; } || warn "Lựa chọn không hợp lệ."
     done
   fi
-  
-  read -rp "Address (chỉ IP, vd 192.168.1.150): " ADDR
-  ADDR="${ADDR%/*}/24"
+
+  read_ipv4 "Address (chỉ IP, vd 192.168.1.150): " ADDR
+  read_ipv4 "Gateway (vd 192.168.1.1): " GW
+  # Cảnh báo nếu gateway khác lớp mạng /24 với address — máy sẽ không ra được internet
+  if [[ "${ADDR%.*}" != "${GW%.*}" ]]; then
+    warn "Gateway '$GW' không cùng lớp mạng /24 với '$ADDR' — kiểm tra lại nếu đây không phải chủ ý."
+  fi
+  ADDR="$ADDR/24"
   info "Netmask cố định: 255.255.255.0 (/24) → $ADDR"
-  read -rp "Gateway (vd 192.168.1.1): " GW
-  # Menu read (không dùng 'select') vì 'select' khi nhấn Enter chỉ in lại menu,
-  # không hỗ trợ "Enter = giá trị mặc định".
   echo
   echo "Chọn nhóm DNS:"
   echo "  1) Google      (8.8.8.8 / 8.8.4.4)   (mặc định)"
@@ -169,194 +198,276 @@ fi
 ok "Đã thu thập xong cấu hình. Bắt đầu cài đặt..."
 
 # ############################################################
+# KHUNG THEO DÕI TRẠNG THÁI CÁC BƯỚC
+# ############################################################
+# Mỗi bước được ghi lại: tên bước + trạng thái + ghi chú, in ra dạng danh sách khi kết thúc
+#   OK      = thành công (đã kiểm tra bằng "cờ" xác minh)
+#   BỎ QUA  = không áp dụng / không bắt buộc, không tính là lỗi
+#   LỖI     = thất bại → dừng script, KHÔNG reboot
+# TOTAL_STEPS chỉ dùng để hiển thị "Bước N/TOTAL" — nhớ cập nhật khi thêm/bớt begin_step
+TOTAL_STEPS=13
+STEP_TITLES=()
+STEP_STATES=()
+STEP_NOTES=()
+
+record() { STEP_TITLES+=("$1"); STEP_STATES+=("$2"); STEP_NOTES+=("${3:-}"); }
+
+# Bắt đầu một bước: đánh số theo số bước đã ghi nhận, in tiêu đề, lưu tên bước hiện tại
+begin_step() {
+  CURRENT_STEP="$1"
+  STEP_NO=$(( ${#STEP_TITLES[@]} + 1 ))
+  info "Bước ${STEP_NO}/${TOTAL_STEPS}: ${CURRENT_STEP}..."
+}
+
+pass_step() { record "$CURRENT_STEP" "OK"     "${1:-}"; ok   "Bước ${STEP_NO} OK — ${CURRENT_STEP}${1:+ ($1)}"; }
+skip_step() { record "$CURRENT_STEP" "BỎ QUA" "${1:-}"; warn "Bước ${STEP_NO} bỏ qua — ${1:-không áp dụng}"; }
+
+# In tổng kết các bước theo dạng danh sách từng ý
+print_summary() {
+  local i state mark color
+  echo
+  for i in "${!STEP_TITLES[@]}"; do
+    state="${STEP_STATES[$i]}"
+    case "$state" in
+      OK)       mark="✔"; color="$GREEN";;
+      "BỎ QUA") mark="○"; color="$YELLOW";;
+      *)        mark="✘"; color="$RED";;
+    esac
+    echo -e "  ${color}${mark}${NC} Bước $((i+1)). ${STEP_TITLES[$i]}  ${color}[${state}]${NC}"
+    [[ -n "${STEP_NOTES[$i]}" ]] && echo "       ↳ ${STEP_NOTES[$i]}"
+  done
+}
+
+# Bước thất bại → ghi LỖI, in tổng kết, dừng hẳn, KHÔNG reboot, KHÔNG xóa script
+die_step() {
+  local reason="${1:-lệnh trả về mã lỗi}"
+  record "$CURRENT_STEP" "LỖI" "$reason"
+  echo
+  err "BƯỚC ${STEP_NO}/${TOTAL_STEPS} THẤT BẠI: ${CURRENT_STEP}"
+  err "Nguyên nhân: ${reason}"
+  print_summary
+  echo
+  err "CÀI ĐẶT DỪNG LẠI DO LỖI:"
+  err "  • Máy sẽ KHÔNG khởi động lại."
+  err "  • Script KHÔNG bị xóa."
+  err "  • Sửa lỗi xong chạy lại: $0"
+  exit 1
+}
+
+# Chạy lệnh bắt buộc: lỗi là dừng
+must() {
+  local rc
+  "$@"; rc=$?
+  (( rc != 0 )) && die_step "lệnh thất bại (mã $rc): $*"
+  return 0
+}
+
+# Cờ xác minh sau khi làm xong: điều kiện sai là dừng
+verify() {
+  local desc="$1"; shift
+  if "$@" &>/dev/null; then
+    return 0
+  fi
+  die_step "cờ kiểm tra thất bại — ${desc}"
+}
+
+# ############################################################
 # PHẦN B: CÀI ĐẶT & CẤU HÌNH (tự động, không cần tương tác)
 # ############################################################
 
-# ============================================================
-# Bước 1: Cập nhật hệ thống
-# ============================================================
-info "Bước 1/11: Cập nhật hệ thống (pacman -Syu)..."
-sudo pacman -Syu --noconfirm
-ok "Đã cập nhật hệ thống."
+# --- Bước 1: Cập nhật hệ thống ---
+begin_step "Cập nhật hệ thống (pacman -Syu)"
+must sudo pacman -Syu --noconfirm
+pass_step
 
-# ============================================================
-# Bước 2: Cài xrdp và xorgxrdp (qua paru / AUR)
-# ============================================================
-info "Bước 2/11: Cài đặt xrdp + xorgxrdp..."
-paru -S --noconfirm xrdp xorgxrdp
-ok "Đã cài xrdp + xorgxrdp."
+# --- Bước 2: Cài xrdp và xorgxrdp (qua paru / AUR) ---
+begin_step "Cài đặt xrdp + xorgxrdp"
+must paru -S --noconfirm xrdp xorgxrdp
+verify "không tìm thấy lệnh xrdp sau khi cài" command -v xrdp
+verify "không tìm thấy /etc/xrdp/xrdp.ini" test -f /etc/xrdp/xrdp.ini
+pass_step "$(xrdp -v 2>/dev/null | head -n1)"
 
-# ============================================================
-# Bước 3: Tạo chứng chỉ (cert) tự động
-# ============================================================
-info "Bước 3/11: Tạo cert..."
+# --- Bước 3: Tạo chứng chỉ (cert) tự động [không bắt buộc] ---
+begin_step "Tạo chứng chỉ (cert) cho xrdp"
 if command -v xrdp-keygen &>/dev/null; then
-  sudo xrdp-keygen xrdp auto && ok "Đã tạo cert." || warn "xrdp-keygen lỗi — bỏ qua, service sẽ tự tạo cert."
+  if sudo xrdp-keygen xrdp auto; then
+    pass_step
+  else
+    skip_step "xrdp-keygen lỗi — service sẽ tự tạo cert khi khởi động"
+  fi
 else
-  warn "Không có xrdp-keygen — bỏ qua (service tự tạo cert khi khởi động)."
+  skip_step "không có xrdp-keygen — service tự tạo cert khi khởi động"
 fi
 
-# ============================================================
-# Bước 4: Kích hoạt dịch vụ xrdp
-# ============================================================
-info "Bước 4/11: Kích hoạt xrdp..."
-sudo systemctl enable --now xrdp
-ok "xrdp đã được bật."
+# --- Bước 4: Kích hoạt dịch vụ xrdp ---
+begin_step "Kích hoạt dịch vụ xrdp"
+must sudo systemctl enable --now xrdp
+verify "xrdp chưa được enable" systemctl is-enabled xrdp
+pass_step
 
-# ============================================================
-# Bước 5: Đổi port trong /etc/xrdp/xrdp.ini
-# ============================================================
-info "Bước 5/11: Đặt port = ${XRDP_PORT}..."
+# --- Bước 5: Đổi port trong /etc/xrdp/xrdp.ini ---
+begin_step "Đặt port xrdp = ${XRDP_PORT}"
 # Chỉ thay dòng 'port=' ĐẦU TIÊN (nằm trong [Globals]), không đụng port của session
-sudo sed -i -E "0,/^port=.*/s//port=${XRDP_PORT}/" /etc/xrdp/xrdp.ini
-ok "Đã đặt port = ${XRDP_PORT}."
+must sudo sed -i -E "0,/^port=.*/s//port=${XRDP_PORT}/" /etc/xrdp/xrdp.ini
+verify "không thấy dòng port=${XRDP_PORT} trong /etc/xrdp/xrdp.ini" \
+  grep -qx "port=${XRDP_PORT}" /etc/xrdp/xrdp.ini
+pass_step "port=${XRDP_PORT}"
 
-# ============================================================
-# Bước 6: Cấu hình ~/.xinitrc theo Desktop Environment
-# ============================================================
-info "Bước 6/11: Ghi ~/.xinitrc..."
+# --- Bước 6: Cấu hình ~/.xinitrc theo Desktop Environment ---
+begin_step "Ghi ~/.xinitrc cho phiên desktop"
 # Nếu chọn KDE Plasma (X11) thì đảm bảo có kwin-x11 (Arch đã tách kwin-x11/kwin-wayland)
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   info "Đảm bảo có kwin-x11 cho phiên Plasma X11..."
-  sudo pacman -S --needed --noconfirm kwin-x11
+  must sudo pacman -S --needed --noconfirm kwin-x11
   ok "kwin-x11 đã sẵn sàng."
 fi
 # Ghi ~/.xinitrc của USER (không dùng sudo — nếu dùng sudo sẽ ghi vào /root)
-cat > "$HOME/.xinitrc" <<EOF
+cat > "$HOME/.xinitrc" <<EOF || die_step "không ghi được $HOME/.xinitrc"
 #!/bin/sh
 # Tắt DPMS và screensaver của X (tránh màn hình đen khi reconnect XRDP)
 xset -dpms
 xset s off
 $SESSION_CMD
 EOF
-chmod +x "$HOME/.xinitrc"
-ok "Đã ghi ~/.xinitrc với: $SESSION_CMD"
+must chmod +x "$HOME/.xinitrc"
+verify "~/.xinitrc không chứa lệnh session mong muốn" \
+  grep -qF "$SESSION_CMD" "$HOME/.xinitrc"
+pass_step "$SESSION_CMD"
 
-# ============================================================
-# Bước 7: Khởi động lại xrdp
-# ============================================================
-info "Bước 7/11: Khởi động lại xrdp..."
-sudo systemctl restart xrdp
-ok "Đã restart xrdp."
+# --- Bước 7: Khởi động lại xrdp ---
+begin_step "Khởi động lại dịch vụ xrdp"
+must sudo systemctl restart xrdp
+sleep 2   # cho service kịp lên trước khi kiểm tra cờ
+verify "xrdp không ở trạng thái active (xem: journalctl -u xrdp)" systemctl is-active xrdp
+pass_step "active"
 
-# ============================================================
-# Bước 8: Tắt tường lửa ufw
-# ============================================================
-info "Bước 8/11: Tắt tường lửa..."
+# --- Bước 8: Tắt tường lửa ufw [không bắt buộc] ---
+begin_step "Tắt tường lửa ufw"
 if command -v ufw &>/dev/null; then
-  sudo ufw disable
-  ok "Đã tắt ufw."
+  must sudo ufw disable
+  pass_step
 else
-  warn "Không thấy ufw — bỏ qua. (Có thể bạn chưa cài, không sao cả.)"
+  skip_step "không có ufw trên máy — không cần tắt"
 fi
 
-# ============================================================
-# Bước 9: Cấu hình IP tĩnh (tùy chọn) — qua nmcli (NetworkManager)
-# ============================================================
-info "Bước 9/11: Cấu hình IP tĩnh..."
+# --- Bước 9: Cấu hình IP tĩnh (tùy chọn) — qua nmcli (NetworkManager) ---
+begin_step "Cấu hình IP tĩnh"
 if [[ "$STATIC_IP" == true ]]; then
   # Gộp DNS chính + phụ (nếu có)
   DNS_ALL="$DNS"
   [[ -n "${DNS2:-}" ]] && DNS_ALL="$DNS,$DNS2"
 
-  sudo nmcli connection modify "$CON" \
+  must sudo nmcli connection modify "$CON" \
        ipv4.method manual \
        ipv4.addresses "$ADDR" \
        ipv4.gateway "$GW" \
        ipv4.dns "$DNS_ALL"
-  sudo nmcli connection up "$CON"
-  ok "Đã đặt IP tĩnh cho '$CON' (DNS: $DNS_ALL)."
+  must sudo nmcli connection up "$CON"
+  # Truyền $CON qua tham số vị trí ($1) thay vì nhúng vào chuỗi — an toàn với mọi tên connection
+  verify "connection '$CON' chưa ở chế độ manual" \
+    bash -c 'nmcli -g ipv4.method connection show "$1" | grep -qx manual' _ "$CON"
+  pass_step "$CON → $ADDR, GW $GW, DNS $DNS_ALL"
 else
-  warn "Bỏ qua cấu hình IP tĩnh."
+  skip_step "người dùng chọn không đặt IP tĩnh (giữ DHCP)"
 fi
 
-# ============================================================
-# Bước 10: Tắt auto sleep / hibernate (giữ máy luôn thức cho XRDP)
-# ============================================================
-info "Bước 10/11: Tắt auto sleep / hibernate..."
-sudo systemctl mask hibernate.target hybrid-sleep.target sleep.target suspend-then-hibernate.target suspend.target
-ok "Đã tắt sleep/hibernate (máy sẽ không tự ngủ)."
+# --- Bước 10: Tắt auto sleep / hibernate (giữ máy luôn thức cho XRDP) ---
+begin_step "Tắt auto sleep / hibernate"
+must sudo systemctl mask hibernate.target hybrid-sleep.target sleep.target suspend-then-hibernate.target suspend.target
+verify "sleep.target chưa bị mask" \
+  bash -c 'systemctl is-enabled sleep.target 2>/dev/null | grep -qx masked'
+pass_step "máy sẽ không tự ngủ"
 
-# ============================================================
-# Bước 11: Tắt khóa màn hình tự động (screen lock)
-# ============================================================
-info "Bước 11/11: Tắt khóa màn hình tự động..."
+# --- Bước 11: Tắt khóa màn hình tự động (screen lock) ---
+begin_step "Tắt khóa màn hình tự động"
 # KDE Plasma — tắt qua file cấu hình kscreenlockerrc của user
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
-  mkdir -p "$HOME/.config"
+  must mkdir -p "$HOME/.config"
   if command -v kwriteconfig6 &>/dev/null; then
-    kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
-    kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false
+    must kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
+    must kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false
   elif command -v kwriteconfig5 &>/dev/null; then
-    kwriteconfig5 --file kscreenlockerrc --group Daemon --key Autolock false
-    kwriteconfig5 --file kscreenlockerrc --group Daemon --key LockOnResume false
+    must kwriteconfig5 --file kscreenlockerrc --group Daemon --key Autolock false
+    must kwriteconfig5 --file kscreenlockerrc --group Daemon --key LockOnResume false
   else
     # Ghi thẳng file nếu không có kwriteconfig
-    cat > "$HOME/.config/kscreenlockerrc" <<EOF
+    cat > "$HOME/.config/kscreenlockerrc" <<EOF || die_step "không ghi được kscreenlockerrc"
 [Daemon]
 Autolock=false
 LockOnResume=false
 EOF
   fi
-  ok "Đã tắt khóa màn hình cho Plasma."
+  verify "kscreenlockerrc không có Autolock=false" \
+    grep -qi "Autolock=false" "$HOME/.config/kscreenlockerrc"
+  pass_step "KDE Plasma"
 # GNOME — tắt qua gsettings
 elif [[ "$SESSION_CMD" == "exec gnome-session" ]]; then
   if command -v gsettings &>/dev/null; then
-    gsettings set org.gnome.desktop.screensaver lock-enabled false 2>/dev/null
-    gsettings set org.gnome.desktop.session idle-delay 0 2>/dev/null
-    ok "Đã tắt khóa màn hình cho GNOME."
+    must gsettings set org.gnome.desktop.screensaver lock-enabled false
+    must gsettings set org.gnome.desktop.session idle-delay 0
+    pass_step "GNOME"
   else
-    warn "Không thấy gsettings — bỏ qua tắt khóa màn hình GNOME."
+    skip_step "không có gsettings — bỏ qua tắt khóa màn hình GNOME"
   fi
 else
   # XFCE / Cosmic / lệnh tùy chỉnh — xset s off trong .xinitrc đã xử lý phần lớn
-  warn "DE này không có bước tắt lock riêng — đã dựa vào 'xset s off' trong ~/.xinitrc."
+  skip_step "DE này không có bước riêng — đã dùng 'xset s off' trong ~/.xinitrc"
 fi
 
-# ============================================================
-# Đổi mật khẩu cho user + root
-# ============================================================
+# --- Bước 12: Đổi mật khẩu cho user + root ---
+begin_step "Đổi mật khẩu cho user '$USER' và root"
 if [[ "$SET_PASS" == true ]]; then
-  info "Đổi mật khẩu cho user '$USER' và root..."
-  echo "$USER:$NEWPASS" | sudo chpasswd
-  echo "root:$NEWPASS"   | sudo chpasswd
-  ok "Đã đổi mật khẩu cho '$USER' và root."
-fi
-
-# ============================================================
-# Bước 12: Cài đặt SCADA agent
-# ============================================================
-info "Cài đặt SCADA agent từ scada.tpservers.com..."
-if curl -fsSL https://scada.tpservers.com/agent | sudo bash; then
-  ok "Đã cài đặt SCADA agent."
+  echo "$USER:$NEWPASS" | sudo chpasswd || die_step "không đổi được mật khẩu cho '$USER'"
+  echo "root:$NEWPASS"   | sudo chpasswd || die_step "không đổi được mật khẩu cho root"
+  pass_step "đã đổi cho '$USER' và root"
 else
-  warn "Cài SCADA agent thất bại — kiểm tra lại mạng hoặc URL."
+  skip_step "người dùng chọn không đổi mật khẩu"
 fi
 
-# ============================================================
-# Tổng kết
-# ============================================================
-echo
-ok "HOÀN TẤT! Tóm tắt:"
-echo "  • xrdp đang chạy ở port : ${XRDP_PORT}"
-echo "  • Phiên desktop          : ${SESSION_CMD}"
-echo "  • Trạng thái dịch vụ     :"
-systemctl is-active xrdp >/dev/null 2>&1 && echo "      xrdp = active" || echo "      xrdp = KHÔNG active (kiểm tra: journalctl -u xrdp)"
-echo
-echo "  Kết nối từ máy khác bằng RDP tới:  <IP-máy-này>:${XRDP_PORT}"
-echo "  Kiểm tra IP hiện tại bằng:          ip a"
+# --- Bước 13: Cài đặt SCADA agent [không bắt buộc] ---
+begin_step "Cài đặt SCADA agent (scada.tpservers.com)"
+if curl -fsSL https://scada.tpservers.com/agent | sudo bash; then
+  pass_step
+else
+  skip_step "cài SCADA agent thất bại — kiểm tra lại mạng hoặc URL"
+fi
 
-# ============================================================
-# Tự xóa file script
-# ============================================================
+# ############################################################
+# PHẦN C: TỔNG KẾT — chỉ tới đây khi TẤT CẢ các bước đều không lỗi
+# ############################################################
+echo
+ok "HOÀN TẤT! Tất cả ${#STEP_TITLES[@]}/${TOTAL_STEPS} bước đều không có lỗi."
+print_summary
+
+echo
+info "Cấu hình đã áp dụng:"
+echo "  • Port xrdp: ${XRDP_PORT}"
+echo "  • Phiên desktop: ${SESSION_CMD}"
+echo "  • Dịch vụ xrdp: $(systemctl is-active xrdp 2>/dev/null)"
+if [[ "$STATIC_IP" == true ]]; then
+  echo "  • IP tĩnh: ${ADDR} (GW ${GW}, DNS ${DNS_ALL})"
+else
+  echo "  • IP: giữ DHCP"
+fi
+echo "  • Mật khẩu user/root: $([[ "$SET_PASS" == true ]] && echo 'đã đặt lại' || echo 'giữ nguyên')"
+echo "  • Sleep/Hibernate: đã tắt"
+echo "  • Khóa màn hình: đã tắt"
+echo
+info "Hướng dẫn sử dụng:"
+echo "  • Kết nối RDP từ máy khác tới: <IP-máy-này>:${XRDP_PORT}"
+echo "  • Kiểm tra IP hiện tại bằng: ip a"
+
+# --- Tự xóa file script (chỉ khi mọi bước đều thành công) ---
 SCRIPT_PATH="$(realpath "$0")"
 info "Xóa file script: $SCRIPT_PATH"
 rm -f "$SCRIPT_PATH" && ok "Đã xóa file script." || warn "Không xóa được file script."
 
-# ============================================================
-# Khởi động lại máy
-# ============================================================
+# --- Khởi động lại máy ---
 echo
-warn "Cài đặt xong — máy sẽ khởi động lại sau 10 giây... (Ctrl+C để hủy)"
-sleep 10
+warn "Máy sẽ khởi động lại sau 10 giây... (Ctrl+C để hủy)"
+for i in $(seq 10 -1 1); do
+  printf "\r${YELLOW}[!]${NC}    Reboot sau %2d giây... " "$i"
+  sleep 1
+done
+echo
 sudo reboot
