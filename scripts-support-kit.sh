@@ -164,6 +164,7 @@ change_passwords() {
 setup_network_xrdp() {
     local CON ADDR GW DNS PORT ANSWER
     local INI="/etc/xrdp/xrdp.ini" CUR_PORT
+    local AFTER AFTER_TXT
 
     # ---------- Kiểm tra điều kiện trước khi hỏi ----------
     CON=$(pick_nm_connection) || return 1
@@ -191,6 +192,20 @@ setup_network_xrdp() {
         echo "Port '$PORT' không hợp lệ (1-65535), hủy."; return 1
     fi
 
+    # ---------- Hành động sau khi cấu hình xong ----------
+    echo
+    echo "Sau khi cấu hình xong thì làm gì?"
+    echo "  1) Không làm gì (quay lại menu)"
+    echo "  2) Khởi động lại máy"
+    echo "  3) Tắt máy"
+    read -rp "Lựa chọn [1]: " AFTER
+    case "${AFTER:-1}" in
+        1) AFTER=1; AFTER_TXT="không làm gì" ;;
+        2) AFTER=2; AFTER_TXT="KHỞI ĐỘNG LẠI máy" ;;
+        3) AFTER=3; AFTER_TXT="TẮT máy" ;;
+        *) echo "Lựa chọn không hợp lệ, hủy."; return 1 ;;
+    esac
+
     # ---------- Xác nhận ----------
     echo
     echo "Sắp áp dụng:"
@@ -199,6 +214,7 @@ setup_network_xrdp() {
     echo "  • Gateway    : $GW"
     echo "  • DNS        : $DNS"
     echo "  • Port XRDP  : ${CUR_PORT:-?} -> $PORT"
+    echo "  • Sau đó     : $AFTER_TXT"
     read -rp "Xác nhận áp dụng? [y/N]: " ANSWER
     [ "${ANSWER,,}" != "y" ] && { echo "Đã hủy, chưa thay đổi gì."; return 1; }
 
@@ -234,6 +250,16 @@ setup_network_xrdp() {
     echo "  Nhớ mở port trên tường lửa nếu đang bật (ufw/firewalld)."
     echo
     show_network_info
+
+    # ---------- Hành động cuối (đã chọn từ trước) ----------
+    [ "$AFTER" = "1" ] && return 0
+    echo
+    echo "⚠️  $AFTER_TXT sau 10 giây... (Ctrl+C để hủy)"
+    sleep 10
+    case "$AFTER" in
+        2) sudo reboot ;;
+        3) sudo poweroff ;;
+    esac
 }
 
 # ---------------------------------------------------------------------------
