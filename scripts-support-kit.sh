@@ -10,18 +10,43 @@ pause() {
     read -rp $'\nNhấn Enter để quay lại menu...' _
 }
 
-# ---------------------------------------------------------------------------
-# 1) Cấu hình DNS qua NetworkManager
-# ---------------------------------------------------------------------------
-configure_dns_nm() {
-    local DNS DEV CON PICK
+# Đúng dạng IPv4: 4 octet 0-255, không có số 0 thừa ở đầu (010 dễ bị hiểu là bát phân)
+is_ipv4() {
+    local ip="$1" o
+    [[ "$ip" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] || return 1
+    for o in ${ip//./ }; do
+        (( 10#$o >= 0 && 10#$o <= 255 )) || return 1
+        [[ "$o" != "0" && "$o" =~ ^0 ]] && return 1
+    done
+    return 0
+}
 
-    echo "Chọn nhóm DNS:"
-    echo "  1) Google      (8.8.8.8,8.8.4.4)"
-    echo "  2) Cloudflare  (1.1.1.1,1.0.0.1)"
-    echo "  3) Viettel     (203.113.131.1,203.113.131.2)"
-    echo "  4) VNPT        (203.162.4.191,203.162.4.190)"
-    echo "  5) Tự nhập"
+# Hỏi cho tới khi nhập được IPv4 hợp lệ; kết quả gán vào biến có tên $2
+read_ipv4() {
+    local prompt="$1" varname="$2" value
+    while true; do
+        read -rp "$prompt" value || { echo "Không đọc được dữ liệu nhập (EOF)."; return 1; }
+        value="${value// /}"      # bỏ khoảng trắng thừa
+        value="${value%/*}"       # bỏ phần /prefix nếu lỡ gõ (VD 192.168.1.10/24)
+        if is_ipv4 "$value"; then
+            printf -v "$varname" '%s' "$value"
+            return 0
+        fi
+        echo "Giá trị '$value' không phải IPv4 hợp lệ — nhập dạng x.x.x.x, mỗi số 0-255."
+    done
+}
+
+# Menu chọn nhóm DNS; in chuỗi DNS ra stdout (menu in ra stderr để không lẫn kết quả)
+pick_dns() {
+    local PICK DNS
+    {
+        echo "Chọn nhóm DNS:"
+        echo "  1) Google      (8.8.8.8,8.8.4.4)"
+        echo "  2) Cloudflare  (1.1.1.1,1.0.0.1)"
+        echo "  3) Viettel     (203.113.131.1,203.113.131.2)"
+        echo "  4) VNPT        (203.162.4.191,203.162.4.190)"
+        echo "  5) Tự nhập"
+    } >&2
     read -rp "Lựa chọn [1]: " PICK
     case "${PICK:-1}" in
         1) DNS="8.8.8.8,8.8.4.4" ;;
@@ -29,9 +54,54 @@ configure_dns_nm() {
         3) DNS="203.113.131.1,203.113.131.2" ;;
         4) DNS="203.162.4.191,203.162.4.190" ;;
         5) read -rp "Nhập DNS (VD 8.8.8.8,1.1.1.1): " DNS ;;
-        *) echo "Lựa chọn không hợp lệ"; return 1 ;;
+        *) echo "Lựa chọn không hợp lệ" >&2; return 1 ;;
     esac
-    [ -z "$DNS" ] && { echo "Bạn chưa nhập DNS"; return 1; }
+    [ -z "$DNS" ] && { echo "Bạn chưa nhập DNS" >&2; return 1; }
+    printf '%s' "$DNS"
+}
+
+# Tự lấy connection NetworkManager đang active (không hỏi); in tên ra stdout
+pick_nm_connection() {
+    local DEV CON=""
+    command -v nmcli >/dev/null 2>&1 || { echo "Máy không có nmcli (NetworkManager)" >&2; return 1; }
+
+    # Ưu tiên interface đang giữ default route — đó mới là đường ra internet thật sự
+    DEV=$(ip -4 route show default | awk '{print $5; exit}')
+    [ -n "$DEV" ] && CON=$(nmcli -t -f DEVICE,CONNECTION dev status | grep "^${DEV}:" | cut -d: -f2-)
+
+    # Không có default route (hoặc interface đó không do NM quản lý) -> lấy connection active đầu tiên
+    [ -z "$CON" ] && CON=$(nmcli -t -f NAME,DEVICE connection show --active | awk -F: '$2!="" && $2!="lo"{print $1; exit}')
+
+    [ -z "$CON" ] && { echo "Không tìm thấy connection nào đang active" >&2; return 1; }
+    printf '%s' "$CON"
+}
+
+# In cấu hình mạng hiện tại (IP / gateway / DNS)
+show_network_info() {
+    local line CUR_GW CUR_DNS
+    echo "Cấu hình mạng hiện tại:"
+    while IFS= read -r line; do
+        echo "  • IP      : $line"
+    done < <(ip -brief -4 addr show scope global 2>/dev/null | awk '$1!="lo"{print $1" -> "$3}')
+    CUR_GW=$(ip route show default 2>/dev/null | awk '/default/{print $3; exit}')
+    echo "  • Gateway : ${CUR_GW:-(không có)}"
+    if command -v resolvectl >/dev/null 2>&1; then
+        CUR_DNS=$(resolvectl dns 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')
+    fi
+    [ -z "${CUR_DNS:-}" ] && command -v nmcli >/dev/null 2>&1 && \
+        CUR_DNS=$(nmcli -g IP4.DNS device show 2>/dev/null | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}' | sort -u | paste -sd' ')
+    [ -z "${CUR_DNS:-}" ] && \
+        CUR_DNS=$(awk '/^nameserver/{print $2}' /etc/resolv.conf 2>/dev/null | paste -sd' ')
+    echo "  • DNS     : ${CUR_DNS:-(không có)}"
+}
+
+# ---------------------------------------------------------------------------
+# 1) Cấu hình DNS qua NetworkManager
+# ---------------------------------------------------------------------------
+configure_dns_nm() {
+    local DNS DEV CON
+
+    DNS=$(pick_dns) || return 1
 
     DEV=$(ip -4 route show default | awk '{print $5; exit}')
     [ -z "$DEV" ] && { echo "Không tìm thấy interface đang online"; return 1; }
@@ -89,6 +159,84 @@ change_passwords() {
 }
 
 # ---------------------------------------------------------------------------
+# 4) Cấu hình mạng + port XRDP (hỏi hết một lượt rồi áp dụng)
+# ---------------------------------------------------------------------------
+setup_network_xrdp() {
+    local CON ADDR GW DNS PORT ANSWER
+    local INI="/etc/xrdp/xrdp.ini" CUR_PORT
+
+    # ---------- Kiểm tra điều kiện trước khi hỏi ----------
+    CON=$(pick_nm_connection) || return 1
+    [ ! -f "$INI" ] && { echo "Không tìm thấy $INI — máy chưa cài xrdp?"; return 1; }
+    CUR_PORT=$(grep -m1 -E '^port=' "$INI" | cut -d= -f2)
+
+    echo
+    show_network_info
+    echo "  • Port XRDP : ${CUR_PORT:-(không đọc được)}"
+    echo "  • Connection: $CON"
+
+    # ---------- Hỏi toàn bộ cấu hình (không áp dụng gì ở bước này) ----------
+    echo
+    echo "===== Nhập cấu hình mới ====="
+    read_ipv4 "Địa chỉ IP: " ADDR || return 1
+    echo "Subnet mask: 255.255.255.0 (/24) — cố định"
+    # Gateway lấy luôn địa chỉ .1 cùng lớp mạng (đúng với đa số router)
+    GW="${ADDR%.*}.1"
+    echo "Gateway    : $GW — tự suy từ IP"
+    DNS=$(pick_dns) || return 1
+
+    read -rp "Port XRDP [Enter = giữ ${CUR_PORT:-3389}]: " PORT
+    PORT=${PORT:-${CUR_PORT:-3389}}
+    if ! [[ "$PORT" =~ ^[0-9]+$ ]] || (( PORT < 1 || PORT > 65535 )); then
+        echo "Port '$PORT' không hợp lệ (1-65535), hủy."; return 1
+    fi
+
+    # ---------- Xác nhận ----------
+    echo
+    echo "Sắp áp dụng:"
+    echo "  • Connection : $CON"
+    echo "  • IP         : $ADDR/24 (netmask 255.255.255.0)"
+    echo "  • Gateway    : $GW"
+    echo "  • DNS        : $DNS"
+    echo "  • Port XRDP  : ${CUR_PORT:-?} -> $PORT"
+    read -rp "Xác nhận áp dụng? [y/N]: " ANSWER
+    [ "${ANSWER,,}" != "y" ] && { echo "Đã hủy, chưa thay đổi gì."; return 1; }
+
+    # ---------- Áp dụng: port XRDP trước, đổi IP sau (đổi IP có thể ngắt phiên remote) ----------
+    if [ "$PORT" != "$CUR_PORT" ]; then
+        sudo cp -a "$INI" "${INI}.bak" || return 1
+        # Chỉ thay dòng 'port=' ĐẦU TIÊN (nằm trong [Globals]), không đụng port của session
+        sudo sed -i -E "0,/^port=.*/s//port=${PORT}/" "$INI" || return 1
+        grep -qx "port=${PORT}" "$INI" \
+            || { echo "✘ Không ghi được port vào $INI (sao lưu: ${INI}.bak)"; return 1; }
+        sudo systemctl restart xrdp || { echo "✘ Restart xrdp thất bại — xem: journalctl -u xrdp"; return 1; }
+        sleep 2
+        systemctl is-active --quiet xrdp \
+            && echo "✔ Port XRDP: ${CUR_PORT:-?} -> ${PORT} (sao lưu: ${INI}.bak)" \
+            || { echo "✘ xrdp không active sau khi đổi port — xem: journalctl -u xrdp"; return 1; }
+    else
+        echo "• Port XRDP giữ nguyên ($PORT)."
+    fi
+
+    echo "⚠️  Nếu đang remote qua chính mạng này, phiên kết nối sẽ ngắt khi IP đổi."
+    sudo nmcli con mod "$CON" \
+        ipv4.method manual \
+        ipv4.addresses "$ADDR/24" \
+        ipv4.gateway "$GW" \
+        ipv4.dns "$DNS" \
+        ipv4.ignore-auto-dns yes || return 1
+    # 'con up' chắc ăn hơn 'dev reapply' khi đổi method/địa chỉ
+    sudo nmcli con up "$CON" \
+        || { echo "✘ Không kích hoạt lại được '$CON' — kiểm tra: nmcli con show \"$CON\""; return 1; }
+
+    echo "✔ Đã cấu hình xong mạng + port XRDP."
+    echo "  Kết nối RDP tới: ${ADDR}:${PORT}"
+    echo "  Nhớ mở port trên tường lửa nếu đang bật (ufw/firewalld)."
+    echo
+    show_network_info
+}
+
+# ---------------------------------------------------------------------------
 # TODO: Bổ sung các chức năng khác tại đây
 # ---------------------------------------------------------------------------
 
@@ -104,6 +252,7 @@ show_menu() {
   1) Cấu hình DNS (NetworkManager)
   2) Xóa sạch ổ đĩa NVMe (nguy hiểm)
   3) Đổi mật khẩu user + root
+  4) Cấu hình mạng + port XRDP (IP/Subnet/Gateway/DNS/Port)
   q) Thoát
 ============================================
 EOF
@@ -118,6 +267,7 @@ main() {
             1) configure_dns_nm; pause ;;
             2) wipe_nvme; pause ;;
             3) change_passwords; pause ;;
+            4) setup_network_xrdp; pause ;;
             # TODO: thêm chức năng mới ở đây
             q) echo "Thoát."; break ;;
             *) echo "Lựa chọn không hợp lệ. Vui lòng thử lại." ;;
