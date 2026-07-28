@@ -146,19 +146,18 @@ if [[ "${ANS,,}" == "y" ]]; then
   fi
 
   read_ipv4 "Address (chỉ IP, vd 192.168.1.150): " ADDR
-  read_ipv4 "Gateway (vd 192.168.1.1): " GW
-  # Cảnh báo nếu gateway khác lớp mạng /24 với address — máy sẽ không ra được internet
-  if [[ "${ADDR%.*}" != "${GW%.*}" ]]; then
-    warn "Gateway '$GW' không cùng lớp mạng /24 với '$ADDR' — kiểm tra lại nếu đây không phải chủ ý."
-  fi
+  # Gateway lấy luôn địa chỉ .1 cùng lớp mạng (đúng với đa số router) — tính TRƯỚC khi
+  # gắn '/24' vào ADDR cho khỏi phải cắt chuỗi hai lần
+  GW="${ADDR%.*}.1"
   ADDR="$ADDR/24"
   info "Netmask cố định: 255.255.255.0 (/24) → $ADDR"
+  info "Gateway tự suy từ IP: $GW"
   echo
   echo "Chọn nhóm DNS:"
   echo "  1) Google      (8.8.8.8 / 8.8.4.4)   (mặc định)"
   echo "  2) Cloudflare  (1.1.1.1 / 1.0.0.1)"
-  echo "  3) Viettel     (203.113.131.1 / .2)"
-  echo "  4) VNPT        (203.162.4.190 / .191)"
+  echo "  3) VNPT        (203.162.4.190 / .191)"
+  echo "  4) Viettel     (203.113.131.1 / .2)"
   echo "  5) Tự nhập tay"
   DNS=""; DNS2=""
   while true; do
@@ -167,8 +166,8 @@ if [[ "${ANS,,}" == "y" ]]; then
     case "$DNS_CHOICE" in
       1) DNS="8.8.8.8";       DNS2="8.8.4.4";       break;;
       2) DNS="1.1.1.1";       DNS2="1.0.0.1";       break;;
-      3) DNS="203.113.131.1"; DNS2="203.113.131.2"; break;;
-      4) DNS="203.162.4.190"; DNS2="203.162.4.191"; break;;
+      3) DNS="203.162.4.190"; DNS2="203.162.4.191"; break;;
+      4) DNS="203.113.131.1"; DNS2="203.113.131.2"; break;;
       5) read -rp "Preferred DNS (vd 8.8.8.8): " DNS
          read -rp "Alternate DNS (vd 8.8.4.4) [Enter = bỏ qua]: " DNS2
          break;;
