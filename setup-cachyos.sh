@@ -385,30 +385,43 @@ begin_step "Tắt khóa màn hình tự động"
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   must mkdir -p "$HOME/.config"
   if command -v kwriteconfig6 &>/dev/null; then
+    kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
+    kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false
+    kwriteconfig6 --file kscreenlockerrc --group Daemon --key Timeout 0
+
     kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key AutoSuspendAction -- 0
-    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerActionButton -- 8
+    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerButtonAction -- 8
 
     kwriteconfig6 --file powerdevilrc --group AC --group Display --key DimDisplayIdleTimeoutSec -- -1
     kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutSec -- -1
+    kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayWhenIdle -- false
 
-    kwriteconfig6 --file powerdevilrc --group AC --group PowerProfile --key profile performance
-
-    # https://docs.google.com/document/d/1MzxdVAAmC29cSYkPeRZI6Xs7soPNJWyK5iv64asqfzE/edit?tab=t.0
+    kwriteconfig6 --file powerdevilrc --group AC --group Performance --key PowerProfile performance
   else
-    # Ghi thẳng file nếu không có kwriteconfig (nhóm lồng nhau viết dạng [AC][Nhóm])
+    # Không có kwriteconfig6 -> ghi thẳng 2 file, nội dung khớp đúng các key ở trên
+    # (KConfig ghi nhóm lồng nhau theo dạng [AC][Nhóm])
+    cat > "$HOME/.config/kscreenlockerrc" <<EOF || die_step "không ghi được kscreenlockerrc"
+[Daemon]
+Autolock=false
+LockOnResume=false
+Timeout=0
+EOF
     cat > "$HOME/.config/powerdevilrc" <<EOF || die_step "không ghi được powerdevilrc"
 [AC][Display]
-TurnOffDisplayIdleTimeoutSec=-1
 DimDisplayIdleTimeoutSec=-1
-TurnOffDisplayIdleTimeoutWhenLockedSec=1
+TurnOffDisplayIdleTimeoutSec=-1
+TurnOffDisplayWhenIdle=false
+
+[AC][Performance]
+PowerProfile=performance
 
 [AC][SuspendAndShutdown]
 AutoSuspendAction=0
-AutoSuspendIdleTimeoutSec=-1
-PowerActionButton=8
-LidAction=0
+PowerButtonAction=8
 EOF
   fi
+  verify "kscreenlockerrc không có Autolock=false" \
+    grep -q "Autolock=false" "$HOME/.config/kscreenlockerrc"
   verify "powerdevilrc không có AutoSuspendAction=0" \
     grep -q "AutoSuspendAction=0" "$HOME/.config/powerdevilrc"
   pass_step "KDE Plasma"
@@ -429,7 +442,7 @@ fi
 # --- Bước 12: Đặt ảnh nền chuẩn [không bắt buộc] ---
 begin_step "Đặt ảnh nền từ wallpaper-store"
 # Tải về tên cố định (không theo ngày như tên file nguồn) để file cấu hình khỏi phải đổi theo
-WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00-20260727.jpg"
+WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00.jpg"
 WALLPAPER_PATH="/usr/share/backgrounds/tp-wallpaper.jpg"
 WALLPAPER_OK=false
 if ! command -v curl &>/dev/null; then

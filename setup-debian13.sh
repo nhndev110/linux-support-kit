@@ -562,7 +562,7 @@ esac
 # ============================================================
 info "Bước 12/14: Đặt ảnh nền..."
 # Tải về tên cố định (không theo ngày như tên file nguồn) để file cấu hình khỏi phải đổi theo
-WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00-20260727.jpg"
+WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00.jpg"
 WALLPAPER_PATH="/usr/share/backgrounds/tp-wallpaper.jpg"
 WALLPAPER_OK=false
 
