@@ -393,7 +393,7 @@ if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
 
     kwriteconfig6 --file powerdevilrc --group AC --group PowerProfile --key profile performance
 
-    https://docs.google.com/document/d/1MzxdVAAmC29cSYkPeRZI6Xs7soPNJWyK5iv64asqfzE/edit?tab=t.0
+    # https://docs.google.com/document/d/1MzxdVAAmC29cSYkPeRZI6Xs7soPNJWyK5iv64asqfzE/edit?tab=t.0
   else
     # Ghi thẳng file nếu không có kwriteconfig (nhóm lồng nhau viết dạng [AC][Nhóm])
     cat > "$HOME/.config/powerdevilrc" <<EOF || die_step "không ghi được powerdevilrc"
