@@ -51,9 +51,6 @@ fi
 if [[ -z "$TARGET_USER" ]]; then
   read -rp "Nhập tên user thường sẽ remote vào (vd: nam): " TARGET_USER
 fi
-# Xác nhận (bấm Enter để dùng, hoặc gõ tên khác) — tránh đoán nhầm khi chạy bằng root.
-read -rp "User sẽ remote/cấu hình là '$TARGET_USER'? [Enter = đúng, hoặc gõ tên khác]: " _u
-[[ -n "${_u:-}" ]] && TARGET_USER="$_u"
 TARGET_HOME="$(getent passwd "$TARGET_USER" | cut -d: -f6)"
 if [[ -z "$TARGET_HOME" || ! -d "$TARGET_HOME" ]]; then
   err "Không tìm thấy home của user '$TARGET_USER'. Dừng lại."
