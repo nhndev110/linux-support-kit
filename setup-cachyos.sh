@@ -380,31 +380,43 @@ pass_step "máy sẽ không tự ngủ"
 
 # --- Bước 11: Tắt khóa màn hình tự động (screen lock) ---
 begin_step "Tắt khóa màn hình tự động"
-# KDE Plasma — tắt qua file cấu hình kscreenlockerrc của user
+# KDE Plasma — tắt qua powerdevilrc (quản lý năng lượng) của user.
+# Dấu '--' trước giá trị là bắt buộc: thiếu nó, kwriteconfig hiểu '-1' là tùy chọn.
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   must mkdir -p "$HOME/.config"
   if command -v kwriteconfig6 &>/dev/null; then
-    must kwriteconfig6 --file kscreenlockerrc --group Daemon --key Autolock false
-    must kwriteconfig6 --file kscreenlockerrc --group Daemon --key LockOnResume false
-  elif command -v kwriteconfig5 &>/dev/null; then
-    must kwriteconfig5 --file kscreenlockerrc --group Daemon --key Autolock false
-    must kwriteconfig5 --file kscreenlockerrc --group Daemon --key LockOnResume false
+    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key AutoSuspendAction -- 0
+    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerActionButton -- 8
+
+    kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutSec -- -1
+    kwriteconfig6 --file powerdevilrc --group AC --group Display --key DimDisplayIdleTimeoutSec -- -1
+    kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutWhenLockedSec -- -1
+
+    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key AutoSuspendIdleTimeoutSec -- -1
+    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key LidAction -- 0
   else
-    # Ghi thẳng file nếu không có kwriteconfig
-    cat > "$HOME/.config/kscreenlockerrc" <<EOF || die_step "không ghi được kscreenlockerrc"
-[Daemon]
-Autolock=false
-LockOnResume=false
+    # Ghi thẳng file nếu không có kwriteconfig (nhóm lồng nhau viết dạng [AC][Nhóm])
+    cat > "$HOME/.config/powerdevilrc" <<EOF || die_step "không ghi được powerdevilrc"
+[AC][Display]
+TurnOffDisplayIdleTimeoutSec=-1
+DimDisplayIdleTimeoutSec=-1
+TurnOffDisplayIdleTimeoutWhenLockedSec=-1
+
+[AC][SuspendAndShutdown]
+AutoSuspendAction=0
+AutoSuspendIdleTimeoutSec=-1
+PowerActionButton=8
+LidAction=0
 EOF
   fi
-  verify "kscreenlockerrc không có Autolock=false" \
-    grep -qi "Autolock=false" "$HOME/.config/kscreenlockerrc"
+  verify "powerdevilrc không có AutoSuspendAction=0" \
+    grep -q "AutoSuspendAction=0" "$HOME/.config/powerdevilrc"
   pass_step "KDE Plasma"
 # GNOME — tắt qua gsettings
 elif [[ "$SESSION_CMD" == "exec gnome-session" ]]; then
   if command -v gsettings &>/dev/null; then
-    must gsettings set org.gnome.desktop.screensaver lock-enabled false
-    must gsettings set org.gnome.desktop.session idle-delay 0
+    gsettings set org.gnome.desktop.screensaver lock-enabled false
+    gsettings set org.gnome.desktop.session idle-delay 0
     pass_step "GNOME"
   else
     skip_step "không có gsettings — bỏ qua tắt khóa màn hình GNOME"
