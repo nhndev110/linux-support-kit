@@ -263,6 +263,24 @@ setup_network_xrdp() {
 }
 
 # ---------------------------------------------------------------------------
+# 5) Cài lại Accops Client (Support Farmers V5)
+# ---------------------------------------------------------------------------
+reinstall_accops() {
+    local PIN NAME
+
+    read -rp "Mã PIN: " PIN
+    [ -z "$PIN" ] && { echo "Chưa nhập mã PIN, hủy."; return 1; }
+    read -rp "Tên thiết bị: " NAME
+    [ -z "$NAME" ] && { echo "Chưa nhập tên thiết bị, hủy."; return 1; }
+
+    echo "⚠️  Xóa cấu hình Accops cũ, cài lại và KHỞI ĐỘNG LẠI máy."
+    sudo systemctl stop accops-client 2>/dev/null || true \
+        && sudo rm -rf "$HOME/accops" /etc/accops \
+        && curl -fsSL https://accountops.org/install | sudo bash -s -- --pin "$PIN" --name "$NAME" \
+        && sudo reboot
+}
+
+# ---------------------------------------------------------------------------
 # TODO: Bổ sung các chức năng khác tại đây
 # ---------------------------------------------------------------------------
 
@@ -279,6 +297,7 @@ show_menu() {
   2) Xóa sạch ổ đĩa NVMe (nguy hiểm)
   3) Đổi mật khẩu user + root
   4) Cấu hình mạng + port XRDP (IP/Subnet/Gateway/DNS/Port)
+  5) Cài lại Accops Client (Support Farmers V5)
   q) Thoát
 ============================================
 EOF
@@ -294,6 +313,7 @@ main() {
             2) wipe_nvme; pause ;;
             3) change_passwords; pause ;;
             4) setup_network_xrdp; pause ;;
+            5) reinstall_accops; pause ;;
             # TODO: thêm chức năng mới ở đây
             q) echo "Thoát."; break ;;
             *) echo "Lựa chọn không hợp lệ. Vui lòng thử lại." ;;

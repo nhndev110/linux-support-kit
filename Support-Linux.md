@@ -14,6 +14,7 @@ Các chức năng có trong `scripts-support-kit.sh`:
 2. **Xóa sạch ổ đĩa NVMe** — tắt swap, gỡ LVM/device-mapper, xóa chữ ký & bảng phân vùng (có xác nhận tên ổ). ⚠️ Xóa toàn bộ dữ liệu, không thể khôi phục.
 3. **Đổi mật khẩu user + root** — đặt mật khẩu mới cùng lúc cho user hiện tại và `root`.
 4. **Cấu hình mạng + port XRDP** — hỏi một lượt IP (subnet cố định /24, gateway tự suy từ IP), DNS và port XRDP, xác nhận rồi áp dụng cùng lúc; chọn sẵn hành động sau khi xong (không làm gì / khởi động lại / tắt máy).
+5. **Cài lại Accops Client** — nhập mã PIN + tên thiết bị, script dừng dịch vụ, xóa cấu hình cũ, cài lại rồi khởi động lại máy.
 
 ---
 
@@ -60,6 +61,12 @@ Theo dõi log của dịch vụ theo thời gian thực (Ctrl+C để thoát):
 
 ```bash
 sudo journalctl -fu accops-client
+```
+
+Cài lại từ đầu (xóa cấu hình cũ, cài lại theo mã PIN + tên thiết bị, rồi khởi động lại máy):
+
+```bash
+sudo systemctl stop accops-client 2>/dev/null || true && sudo rm -rf ~/accops /etc/accops && curl -fsSL https://accountops.org/install | sudo bash -s -- --pin <mã pin> --name "<tên thiết bị>" && sudo reboot
 ```
 
 ### Trạng thái phiên (session states)
