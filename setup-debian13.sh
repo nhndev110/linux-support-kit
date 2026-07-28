@@ -278,7 +278,7 @@ trap 'err "LỖI ở dòng ${LINENO} (mã $?): lệnh \"${BASH_COMMAND}\" — D�
 # Trên Debian desktop, ngay sau khi boot/login, packagekitd (GNOME/Cinnamon) và
 # các timer apt-daily tự chạy để refresh cập nhật → GIỮ /var/lib/dpkg/lock-frontend.
 # Nếu script gọi apt đúng lúc đó, apt sẽ kẹt "Waiting for cache lock" và có thể
-# fail → do 'set -eE' ở trên, cả script CHẾT ngay Bước 1/13.
+# fail → do 'set -eE' ở trên, cả script CHẾT ngay Bước 1/14.
 # Hàm này dừng hẳn các dịch vụ đó và đặt lock timeout để apt tự chờ thay vì fail.
 prepare_apt() {
   info "Tạm dừng dịch vụ tự cập nhật (packagekit, apt-daily) để tránh kẹt lock dpkg..."
@@ -334,7 +334,7 @@ enable_nonfree_repos() {
 # ============================================================
 # Bước 1: Cập nhật hệ thống
 # ============================================================
-info "Bước 1/13: Cập nhật hệ thống (apt update && apt full-upgrade)..."
+info "Bước 1/14: Cập nhật hệ thống (apt update && apt full-upgrade)..."
 apt update
 # Dùng full-upgrade (KHÔNG phải upgrade): khi Debian bump ABI kernel, tên gói
 # linux-image-* đổi → 'upgrade' sẽ GIỮ LẠI kernel cũ, còn 'full-upgrade' mới cài
@@ -346,7 +346,7 @@ ok "Đã cập nhật hệ thống."
 # ============================================================
 # Bước 2: Bật kho non-free nếu cần (cho driver đóng / firmware)
 # ============================================================
-info "Bước 2/13: Chuẩn bị kho phần mềm..."
+info "Bước 2/14: Chuẩn bị kho phần mềm..."
 # Luôn cần contrib/non-free/non-free-firmware vì luôn cài driver NVIDIA (đóng).
 enable_nonfree_repos
 apt update
@@ -354,28 +354,28 @@ apt update
 # ============================================================
 # Bước 3: Cài xrdp (+ dbus-x11 để tránh màn hình đen)
 # ============================================================
-info "Bước 3/13: Cài đặt xrdp..."
+info "Bước 3/14: Cài đặt xrdp..."
 apt install -y xrdp dbus-x11
 ok "Đã cài xrdp."
 
 # ============================================================
 # Bước 4: Thêm user 'xrdp' vào nhóm ssl-cert (fix quyền chứng chỉ)
 # ============================================================
-info "Bước 4/13: adduser xrdp ssl-cert..."
+info "Bước 4/14: adduser xrdp ssl-cert..."
 adduser xrdp ssl-cert
 ok "Đã thêm xrdp vào nhóm ssl-cert."
 
 # ============================================================
 # Bước 5: Kích hoạt dịch vụ xrdp
 # ============================================================
-info "Bước 5/13: Kích hoạt xrdp..."
+info "Bước 5/14: Kích hoạt xrdp..."
 systemctl enable --now xrdp
 ok "xrdp đã được bật."
 
 # ============================================================
 # Bước 6: Đổi port trong /etc/xrdp/xrdp.ini
 # ============================================================
-info "Bước 6/13: Đặt port = ${XRDP_PORT}..."
+info "Bước 6/14: Đặt port = ${XRDP_PORT}..."
 # Chỉ thay dòng 'port=' ĐẦU TIÊN (trong [Globals]), không đụng port của session
 sed -i -E "0,/^port=.*/s//port=${XRDP_PORT}/" /etc/xrdp/xrdp.ini
 ok "Đã đặt port = ${XRDP_PORT}."
@@ -383,7 +383,7 @@ ok "Đã đặt port = ${XRDP_PORT}."
 # ============================================================
 # Bước 7: Cấu hình ~/.xsession cho user (Debian dùng .xsession, không phải .xinitrc)
 # ============================================================
-info "Bước 7/13: Ghi ${TARGET_HOME}/.xsession..."
+info "Bước 7/14: Ghi ${TARGET_HOME}/.xsession..."
 # KDE Plasma (X11) trên Debian 13 cần gói kwin-x11 (đã tách khỏi kwin-wayland)
 if [[ "$DE_KIND" == "plasma" ]]; then
   apt install -y kwin-x11 2>/dev/null || true
@@ -413,7 +413,7 @@ ok "Đã ghi ~/.xsession với: ${EXEC_LINE}"
 # ============================================================
 # Bước 8: Fix popup "Authentication required to create a color profile"
 # ============================================================
-info "Bước 8/13: Tắt popup xác thực color profile (polkit)..."
+info "Bước 8/14: Tắt popup xác thực color profile (polkit)..."
 mkdir -p /etc/polkit-1/rules.d
 cat > /etc/polkit-1/rules.d/49-allow-colord.rules <<'EOF'
 polkit.addRule(function(action, subject) {
@@ -433,14 +433,14 @@ ok "Đã thêm rule polkit cho color profile."
 # ============================================================
 # Bước 9: Khởi động lại xrdp
 # ============================================================
-info "Bước 9/13: Khởi động lại xrdp..."
+info "Bước 9/14: Khởi động lại xrdp..."
 systemctl restart xrdp
 ok "Đã restart xrdp."
 
 # ============================================================
 # Bước 10: Cấu hình IP tĩnh (tùy chọn) — qua nmcli
 # ============================================================
-info "Bước 10/13: Cấu hình IP tĩnh..."
+info "Bước 10/14: Cấu hình IP tĩnh..."
 
 # ---------- Hiển thị cấu hình mạng HIỆN TẠI (trước khi đổi) ----------
 echo
@@ -481,7 +481,7 @@ fi
 # ============================================================
 # Bước 11: Tắt sleep/hibernate + khóa màn hình
 # ============================================================
-info "Bước 11/13: Tắt auto sleep/hibernate + khóa màn hình..."
+info "Bước 11/14: Tắt auto sleep/hibernate + khóa màn hình..."
 systemctl mask hibernate.target hybrid-sleep.target sleep.target suspend-then-hibernate.target suspend.target
 ok "Đã tắt sleep/hibernate."
 
@@ -558,9 +558,87 @@ EOF
 esac
 
 # ============================================================
-# Bước 12: Cài driver VGA
+# Bước 12: Đặt ảnh nền chuẩn từ wallpaper-store
 # ============================================================
-info "Bước 12/13: Cài driver VGA (NVIDIA proprietary)..."
+info "Bước 12/14: Đặt ảnh nền..."
+# Tải về tên cố định (không theo ngày như tên file nguồn) để file cấu hình khỏi phải đổi theo
+WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00-20260727.jpg"
+WALLPAPER_PATH="/usr/share/backgrounds/tp-wallpaper.jpg"
+WALLPAPER_OK=false
+
+# Debian tối giản chưa chắc có curl (mãi bước SCADA cuối mới cài) — bảo đảm trước.
+if ! command -v curl &>/dev/null; then
+  apt install -y curl ca-certificates || true
+fi
+
+mkdir -p /usr/share/backgrounds
+# Tải hụt / 404 -> file rỗng, coi như thất bại. Mất ảnh nền không đáng làm hỏng cả lần cài máy,
+# nên mọi lệnh ở bước này đều bọc '|| true' để 'set -eE' không giết script.
+if curl -fsSL "$WALLPAPER_URL" -o "$WALLPAPER_PATH" && [[ -s "$WALLPAPER_PATH" ]]; then
+  chmod 644 "$WALLPAPER_PATH"
+  case "$DE_KIND" in
+    cinnamon)
+      # Lớp 1 — dconf system database: đặt MẶC ĐỊNH cho mọi user, có tác dụng ở lần
+      # đăng nhập sau mà KHÔNG cần phiên D-Bus nào đang chạy.
+      apt install -y dconf-cli || true
+      mkdir -p /etc/dconf/profile /etc/dconf/db/local.d
+      printf 'user-db:user\nsystem-db:local\n' > /etc/dconf/profile/user
+      cat > /etc/dconf/db/local.d/01-tp-wallpaper <<EOF
+[org/cinnamon/desktop/background]
+picture-uri='file://${WALLPAPER_PATH}'
+picture-options='zoom'
+EOF
+      dconf update || true
+      # Lớp 2 — áp ngay nếu user đang có phiên GUI (giống cách bước 11 gọi gsettings)
+      BUS="/run/user/$(id -u "$TARGET_USER")/bus"
+      if command -v gsettings &>/dev/null && [[ -S "$BUS" ]]; then
+        sudo -u "$TARGET_USER" env \
+          HOME="$TARGET_HOME" \
+          XDG_DATA_DIRS="/usr/local/share:/usr/share" \
+          DBUS_SESSION_BUS_ADDRESS="unix:path=$BUS" \
+          gsettings set org.cinnamon.desktop.background picture-uri "file://${WALLPAPER_PATH}" 2>/dev/null \
+          && ok "Đã áp ảnh nền cho phiên đang chạy của '$TARGET_USER'." \
+          || info "Chưa áp được ngay — ảnh nền sẽ hiện sau khi đăng nhập lại."
+      else
+        info "Chưa có phiên GUI của '$TARGET_USER' — ảnh nền sẽ hiện sau khi đăng nhập lại."
+      fi
+      WALLPAPER_OK=true
+      ;;
+    plasma)
+      # KDE không dùng dconf — ghi thẳng vào config của user
+      # Dùng if/elif chứ không dùng 'cmd && KW=...': dưới 'set -eE', lệnh dò thất bại
+      # sẽ làm cả script thoát ngay tại đó.
+      KW=""
+      if command -v kwriteconfig6 &>/dev/null; then
+        KW=kwriteconfig6
+      elif command -v kwriteconfig5 &>/dev/null; then
+        KW=kwriteconfig5
+      fi
+      if [[ -n "$KW" ]] && run_user "$KW" --file plasma-org.kde.plasma.desktop-appletsrc \
+           --group Containments --group 1 --group Wallpaper --group org.kde.image --group General \
+           --key Image "file://$WALLPAPER_PATH"; then
+        chown -R "${TARGET_USER}:${TARGET_USER}" "${TARGET_HOME}/.config" 2>/dev/null || true
+        WALLPAPER_OK=true
+      else
+        warn "Không ghi được cấu hình Plasma (thiếu kwriteconfig6/5) — ảnh đã tải sẵn tại $WALLPAPER_PATH."
+      fi
+      ;;
+    *)
+      warn "DE này chưa hỗ trợ đặt ảnh nền tự động — ảnh đã tải sẵn tại $WALLPAPER_PATH."
+      ;;
+  esac
+  if [[ "$WALLPAPER_OK" == true ]]; then
+    ok "Đã đặt ảnh nền: $WALLPAPER_PATH"
+  fi
+else
+  rm -f "$WALLPAPER_PATH"
+  warn "Tải ảnh nền thất bại — kiểm tra lại mạng hoặc URL. Bỏ qua bước này."
+fi
+
+# ============================================================
+# Bước 13: Cài driver VGA
+# ============================================================
+info "Bước 13/14: Cài driver VGA (NVIDIA proprietary)..."
 SECUREBOOT_WARN=false   # cờ để nhắc lại Secure Boot ở phần tổng kết
 
 # (a) Kiểm tra có card NVIDIA thật không (chỉ cảnh báo, vẫn cho cài tiếp)
@@ -621,9 +699,9 @@ ok "Đã cài NVIDIA driver (nouveau sẽ tự bị blacklist). Cần reboot đ�
 warn "Sau khi máy khởi động lại, kiểm tra bằng:  nvidia-smi"
 
 # ============================================================
-# Bước 13: Cài đặt SCADA agent
+# Bước 14: Cài đặt SCADA agent
 # ============================================================
-info "Bước 13/13: Cài đặt SCADA agent..."
+info "Bước 14/14: Cài đặt SCADA agent..."
 SCADA_OK=false
 
 # Debian tối giản thường KHÔNG có sẵn curl → cài trước.
@@ -662,6 +740,11 @@ echo "  • xrdp đang chạy ở port : ${XRDP_PORT}"
 echo "  • Phiên desktop          : ${SESSION_CMD}"
 echo "  • User remote            : ${TARGET_USER}"
 echo "  • Driver VGA             : NVIDIA (proprietary)"
+if [[ "${WALLPAPER_OK:-false}" == true ]]; then
+  echo "  • Ảnh nền                : ${WALLPAPER_PATH}"
+else
+  echo "  • Ảnh nền                : bỏ qua"
+fi
 if [[ "$SCADA_OK" == true ]]; then
   echo "  • SCADA agent            : đã cài"
 else

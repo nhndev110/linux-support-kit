@@ -205,7 +205,7 @@ ok "Đã thu thập xong cấu hình. Bắt đầu cài đặt..."
 #   BỎ QUA  = không áp dụng / không bắt buộc, không tính là lỗi
 #   LỖI     = thất bại → dừng script, KHÔNG reboot
 # TOTAL_STEPS chỉ dùng để hiển thị "Bước N/TOTAL" — nhớ cập nhật khi thêm/bớt begin_step
-TOTAL_STEPS=13
+TOTAL_STEPS=14
 STEP_TITLES=()
 STEP_STATES=()
 STEP_NOTES=()
@@ -414,7 +414,54 @@ else
   skip_step "DE này không có bước riêng — đã dùng 'xset s off' trong ~/.xinitrc"
 fi
 
-# --- Bước 12: Đổi mật khẩu cho user + root ---
+# --- Bước 12: Đặt ảnh nền chuẩn [không bắt buộc] ---
+begin_step "Đặt ảnh nền từ wallpaper-store"
+# Tải về tên cố định (không theo ngày như tên file nguồn) để file cấu hình khỏi phải đổi theo
+WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00-20260727.jpg"
+WALLPAPER_PATH="/usr/share/backgrounds/tp-wallpaper.jpg"
+WALLPAPER_OK=false
+if ! command -v curl &>/dev/null; then
+  skip_step "không có curl — không tải được ảnh nền"
+elif [[ "$SESSION_CMD" != "exec startplasma-x11" ]]; then
+  skip_step "DE này chưa hỗ trợ đặt ảnh nền tự động (chỉ KDE Plasma)"
+else
+  sudo mkdir -p /usr/share/backgrounds
+  # Tải hụt / 404 -> file rỗng, coi như thất bại. Mất ảnh nền không đáng làm hỏng cả lần cài máy
+  if sudo curl -fsSL "$WALLPAPER_URL" -o "$WALLPAPER_PATH" && [[ -s "$WALLPAPER_PATH" ]]; then
+    sudo chmod 644 "$WALLPAPER_PATH"
+    # Lớp 1 — ghi config để lần đăng nhập sau (sau reboot cuối script) vẫn có ảnh nền
+    KW=""
+    if command -v kwriteconfig6 &>/dev/null; then
+      KW=kwriteconfig6
+    elif command -v kwriteconfig5 &>/dev/null; then
+      KW=kwriteconfig5
+    fi
+    if [[ -n "$KW" ]] && "$KW" --file plasma-org.kde.plasma.desktop-appletsrc \
+         --group Containments --group 1 --group Wallpaper --group org.kde.image --group General \
+         --key Image "file://$WALLPAPER_PATH"; then
+      WALLPAPER_OK=true
+    fi
+    # Lớp 2 — áp ngay nếu đang chạy trong phiên Plasma (cần D-Bus, có thể chưa có)
+    if command -v plasma-apply-wallpaperimage &>/dev/null \
+       && plasma-apply-wallpaperimage "$WALLPAPER_PATH" &>/dev/null; then
+      ok "Đã áp ảnh nền cho phiên Plasma đang chạy."
+      WALLPAPER_OK=true
+    else
+      info "Chưa có phiên Plasma để áp ngay — ảnh nền sẽ hiện sau khi đăng nhập lại."
+    fi
+    if [[ "$WALLPAPER_OK" == true ]]; then
+      verify "không thấy file ảnh nền $WALLPAPER_PATH" test -s "$WALLPAPER_PATH"
+      pass_step "$WALLPAPER_PATH"
+    else
+      skip_step "đã tải ảnh về $WALLPAPER_PATH nhưng không có kwriteconfig6/5 để đặt — cần đặt tay"
+    fi
+  else
+    sudo rm -f "$WALLPAPER_PATH"
+    skip_step "tải ảnh nền thất bại — kiểm tra lại mạng hoặc URL"
+  fi
+fi
+
+# --- Bước 13: Đổi mật khẩu cho user + root ---
 begin_step "Đổi mật khẩu cho user '$USER' và root"
 if [[ "$SET_PASS" == true ]]; then
   echo "$USER:$NEWPASS" | sudo chpasswd || die_step "không đổi được mật khẩu cho '$USER'"
@@ -424,7 +471,7 @@ else
   skip_step "người dùng chọn không đổi mật khẩu"
 fi
 
-# --- Bước 13: Cài đặt SCADA agent [không bắt buộc] ---
+# --- Bước 14: Cài đặt SCADA agent [không bắt buộc] ---
 begin_step "Cài đặt SCADA agent (scada.tpservers.com)"
 if curl -fsSL https://scada.tpservers.com/agent | sudo bash; then
   pass_step
@@ -452,6 +499,7 @@ fi
 echo "  • Mật khẩu user/root: $([[ "$SET_PASS" == true ]] && echo 'đã đặt lại' || echo 'giữ nguyên')"
 echo "  • Sleep/Hibernate: đã tắt"
 echo "  • Khóa màn hình: đã tắt"
+echo "  • Ảnh nền: $([[ "${WALLPAPER_OK:-false}" == true ]] && echo "$WALLPAPER_PATH" || echo 'bỏ qua')"
 echo
 info "Hướng dẫn sử dụng:"
 echo "  • Kết nối RDP từ máy khác tới: <IP-máy-này>:${XRDP_PORT}"

@@ -13,6 +13,7 @@ Các chức năng có trong `scripts-support-kit.sh`:
 1. **Cấu hình DNS (NetworkManager)** — chọn nhóm DNS có sẵn (Google, Cloudflare, Viettel, VNPT) hoặc tự nhập, rồi áp vào interface đang online.
 2. **Xóa sạch ổ đĩa NVMe** — tắt swap, gỡ LVM/device-mapper, xóa chữ ký & bảng phân vùng (có xác nhận tên ổ). ⚠️ Xóa toàn bộ dữ liệu, không thể khôi phục.
 3. **Đổi mật khẩu user + root** — đặt mật khẩu mới cùng lúc cho user hiện tại và `root`.
+4. **Cấu hình mạng + port XRDP** — hỏi một lượt IP (subnet cố định /24, gateway tự suy từ IP), DNS và port XRDP, xác nhận rồi áp dụng cùng lúc; chọn sẵn hành động sau khi xong (không làm gì / khởi động lại / tắt máy).
 
 ---
 
@@ -108,6 +109,7 @@ Cả hai script biến một máy vừa cài OS thành máy chủ remote desktop
 - **Đổi mật khẩu** cho user thường và `root` (tùy chọn).
 - **Tắt tự động sleep / hibernate** để máy luôn thức phục vụ remote.
 - **Tắt khóa màn hình tự động** theo từng desktop.
+- **Đặt ảnh nền chuẩn** tải từ wallpaper-store về `/usr/share/backgrounds/tp-wallpaper.jpg` (hỗ trợ KDE Plasma & Cinnamon; DE khác chỉ tải ảnh về, bỏ qua bước đặt).
 - Cài **SCADA agent** từ `scada.tpservers.com`.
 - **Tự xóa file script** và **tự khởi động lại** máy khi hoàn tất.
 
