@@ -388,19 +388,18 @@ if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
     kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key AutoSuspendAction -- 0
     kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key PowerActionButton -- 8
 
-    kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutSec -- -1
     kwriteconfig6 --file powerdevilrc --group AC --group Display --key DimDisplayIdleTimeoutSec -- -1
-    kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutWhenLockedSec -- -1
+    kwriteconfig6 --file powerdevilrc --group AC --group Display --key TurnOffDisplayIdleTimeoutSec -- -1
 
-    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key AutoSuspendIdleTimeoutSec -- -1
-    kwriteconfig6 --file powerdevilrc --group AC --group SuspendAndShutdown --key LidAction -- 0
+    kwriteconfig6 --file powerdevilrc --group AC --group PowerProfile --key profile performance
+
   else
     # Ghi thẳng file nếu không có kwriteconfig (nhóm lồng nhau viết dạng [AC][Nhóm])
     cat > "$HOME/.config/powerdevilrc" <<EOF || die_step "không ghi được powerdevilrc"
 [AC][Display]
 TurnOffDisplayIdleTimeoutSec=-1
 DimDisplayIdleTimeoutSec=-1
-TurnOffDisplayIdleTimeoutWhenLockedSec=-1
+TurnOffDisplayIdleTimeoutWhenLockedSec=1
 
 [AC][SuspendAndShutdown]
 AutoSuspendAction=0
