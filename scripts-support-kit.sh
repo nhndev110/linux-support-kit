@@ -281,8 +281,42 @@ reinstall_accops() {
 }
 
 # ---------------------------------------------------------------------------
-# TODO: Bổ sung các chức năng khác tại đây
+# Bổ sung các chức năng khác tại đây
 # ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# 6) Cài SCADA agent từ scada.tpservers.com
+# ---------------------------------------------------------------------------
+install_scada_agent() {
+    local URL='https://scada.tpservers.com/agent'
+
+    echo "Cài đặt SCADA agent từ $URL"
+
+    # Kiểm tra curl
+    if ! command -v curl >/dev/null 2>&1; then
+        echo "curl chưa cài đặt. Thử cài qua trình quản lý gói hiện có..."
+        if command -v apt-get >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y curl || { echo "Cài curl thất bại"; return 1; }
+        elif command -v yum >/dev/null 2>&1; then
+            sudo yum install -y curl || { echo "Cài curl thất bại"; return 1; }
+        elif command -v dnf >/dev/null 2>&1; then
+            sudo dnf install -y curl || { echo "Cài curl thất bại"; return 1; }
+        else
+            echo "Không biết trình quản lý gói — vui lòng cài curl thủ công và thử lại."; return 1
+        fi
+    fi
+
+    # Thực thi script cài đặt agent (tham số cố định như yêu cầu)
+    curl -fsSL "$URL" | sudo bash -s -- -pa scada -pt 8202121018fcbf12caa8aaacea42f2bdb25e7b66
+    local rc=$?
+    if [ $rc -eq 0 ]; then
+        echo "✔ Cài đặt SCADA agent hoàn tất."
+    else
+        echo "✘ Cài đặt SCADA agent thất bại (mã: $rc)."
+        return $rc
+    fi
+}
+
 
 # ---------------------------------------------------------------------------
 # Banner + Menu chính
@@ -315,6 +349,7 @@ show_menu() {
   3) Đổi mật khẩu user + root
   4) Cấu hình mạng + port XRDP (IP/Subnet/Gateway/DNS/Port)
   5) Cài lại Accops Client (Support Farmers V5)
+  6) Cài SCADA agent (scada.tpservers.com)
   q) Thoát
 ============================================
 EOF
@@ -332,6 +367,7 @@ main() {
             3) change_passwords; pause ;;
             4) setup_network_xrdp; pause ;;
             5) reinstall_accops; pause ;;
+            6) install_scada_agent; pause ;;
             # TODO: thêm chức năng mới ở đây
             q) echo "Thoát."; break ;;
             *) echo "Lựa chọn không hợp lệ. Vui lòng thử lại." ;;
