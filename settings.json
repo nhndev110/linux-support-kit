@@ -1,0 +1,26 @@
+{
+    "menus": 1,
+    "headless_mode": true,
+    "device": "/dev/nvme0n1",
+    "fs_name": "btrfs",
+    "subvolumes": "default",
+    "bootloader": "grub",
+    "partitions": [
+        {
+            "name": "/dev/nvme0n1p1",
+            "mountpoint": "/",
+            "size": "100%",
+            "type": "root"
+        }
+    ],
+    "hostname": "cachyos",
+    "locale": "en_US",
+    "xkbmap": "us",
+    "timezone": "Asia/Ho_Chi_Minh",
+    "user_name": "user",
+    "user_pass": "password",
+    "user_shell": "/usr/bin/fish",
+    "root_pass": "rootpassword",
+    "kernel": "linux-cachyos",
+    "desktop": "kde"
+}
