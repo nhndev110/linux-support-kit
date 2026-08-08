@@ -497,7 +497,7 @@ fi
 
 # --- Bước 14: Cài đặt SCADA agent [không bắt buộc] ---
 begin_step "Cài đặt SCADA agent (scada.tpservers.com)"
-if curl -fsSL https://scada.tpservers.com/agent | sudo bash -s -- -pa scada -pt 8202121018fcbf12caa8aaacea42f2bdb25e7b66; then
+if curl -fsSL https://scada.tpservers.com/agent | sudo bash -s -- -pa scada; then
   pass_step
 else
   skip_step "cài SCADA agent thất bại — kiểm tra lại mạng hoặc URL"
