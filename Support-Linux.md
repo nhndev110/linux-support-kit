@@ -140,5 +140,5 @@ Cả hai script biến một máy vừa cài OS thành máy chủ remote desktop
 
 ```
 https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi
-"%PROGRAMFILES(X86)%\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="4/0AXEQxIAlZrv7Waw3TU1BZ7yjpEa6-V7Zl9D-DLJO3tOBFFuMWk4h2q8gCJi-c0J7isIyyQ" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=%COMPUTERNAME%
+"%PROGRAMFILES(X86)%\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="4/0AXEQxIAw-zl7i_xtHn7LY_StaCCP-S_tzOAiWxMxYUMlGhjVB_G1ePVoWbnxH2EIo4A_Dg" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=%COMPUTERNAME%
 ```
