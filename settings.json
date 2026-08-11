@@ -4,23 +4,31 @@
     "device": "/dev/nvme0n1",
     "fs_name": "btrfs",
     "subvolumes": "default",
-    "bootloader": "grub",
     "partitions": [
         {
             "name": "/dev/nvme0n1p1",
+            "mountpoint": "/boot",
+            "size": "1G",
+            "fs_name": "vfat",
+            "type": "boot"
+        },
+        {
+            "name": "/dev/nvme0n1p2",
             "mountpoint": "/",
             "size": "100%",
             "type": "root"
         }
     ],
-    "hostname": "cachyos",
+    "hostname": "may-01",
     "locale": "en_US",
     "xkbmap": "us",
     "timezone": "Asia/Ho_Chi_Minh",
-    "user_name": "user",
-    "user_pass": "password",
-    "user_shell": "/usr/bin/fish",
-    "root_pass": "rootpassword",
+    "user_name": "admin",
+    "user_pass": "matkhau",
+    "user_shell": "/bin/bash",
+    "root_pass": "matkhauroot",
     "kernel": "linux-cachyos",
-    "desktop": "kde"
+    "desktop": "kde",
+    "bootloader": "systemd-boot",
+    "post_install": "/root/hau-cai-dat.sh"
 }
