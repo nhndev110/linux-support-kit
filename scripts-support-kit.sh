@@ -341,6 +341,34 @@ ${C_OFF}
 EOF
 }
 
+# Xóa lịch sử lệnh khi thoát: history trong bộ nhớ + file history của user.
+# Lưu ý: script chạy ở subshell nên chỉ file history mới bị xóa thật sự;
+# history đang nằm trong RAM của shell gọi script phải tự chạy `history -c`.
+clear_history() {
+    local target_user target_home f
+    target_user="${SUDO_USER:-$USER}"
+    target_home=$(getent passwd "$target_user" | cut -d: -f6)
+    [ -z "$target_home" ] && target_home="$HOME"
+
+    history -c 2>/dev/null
+    history -w 2>/dev/null
+
+    for f in "$target_home/.bash_history" "$target_home/.zsh_history" \
+             "$target_home/.local/share/fish/fish_history"; do
+        [ -f "$f" ] && : > "$f"
+    done
+
+    # Nếu đang chạy bằng sudo/root thì xóa luôn history của root
+    if [ "$(id -u)" -eq 0 ] && [ "$target_home" != "/root" ]; then
+        for f in /root/.bash_history /root/.zsh_history; do
+            [ -f "$f" ] && : > "$f"
+        done
+    fi
+
+    echo "Đã xóa lịch sử lệnh (file history của $target_user)."
+    echo "Để xóa nốt lịch sử của phiên shell hiện tại, chạy: history -c && history -w"
+}
+
 show_menu() {
     cat <<'EOF'
 ============================================
@@ -369,7 +397,7 @@ main() {
             5) reinstall_accops; pause ;;
             6) install_scada_agent; pause ;;
             # TODO: thêm chức năng mới ở đây
-            q) echo "Thoát."; break ;;
+            q) echo "Thoát."; clear_history; break ;;
             *) echo "Lựa chọn không hợp lệ. Vui lòng thử lại." ;;
         esac
     done
