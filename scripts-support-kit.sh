@@ -341,32 +341,91 @@ ${C_OFF}
 EOF
 }
 
-# Xóa lịch sử lệnh khi thoát: history trong bộ nhớ + file history của user.
-# Lưu ý: script chạy ở subshell nên chỉ file history mới bị xóa thật sự;
-# history đang nằm trong RAM của shell gọi script phải tự chạy `history -c`.
+# Tìm PID của shell tương tác đã gọi script, bỏ qua sudo/su xen giữa.
+parent_shell_pid() {
+    local pid=$PPID comm
+    while [ -n "$pid" ] && [ "$pid" -gt 1 ] 2>/dev/null; do
+        comm=$(ps -o comm= -p "$pid" 2>/dev/null | tr -d ' ')
+        case "$comm" in
+            bash|-bash|sh|dash|zsh|-zsh|fish|-fish|ksh) echo "$pid"; return 0 ;;
+        esac
+        pid=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    done
+    return 1
+}
+
+# Xóa lịch sử lệnh: file history trên đĩa + (nếu được) history trong bộ nhớ.
+#
+# Điểm mấu chốt: shell giữ history trong RAM và ghi đè xuống file khi thoát,
+# nên chỉ xóa file là chưa đủ — lịch sử sẽ quay lại lúc đóng terminal.
+#   - Nếu script được `source` → history -c chạy ngay trong shell gọi, xóa sạch.
+#   - Nếu script chạy thường  → phải đóng luôn shell cha để nó không ghi đè lại.
 clear_history() {
-    local target_user target_home f
+    local target_user target_home f sourced=0 shell_pid shell_name ans
+
     target_user="${SUDO_USER:-$USER}"
-    target_home=$(getent passwd "$target_user" | cut -d: -f6)
+    target_home=$(getent passwd "$target_user" 2>/dev/null | cut -d: -f6)
     [ -z "$target_home" ] && target_home="$HOME"
 
-    history -c 2>/dev/null
-    history -w 2>/dev/null
-
-    for f in "$target_home/.bash_history" "$target_home/.zsh_history" \
-             "$target_home/.local/share/fish/fish_history"; do
-        [ -f "$f" ] && : > "$f"
+    # Xóa file history của mọi shell phổ biến (Debian hay dùng bash,
+    # CachyOS/Arch mặc định fish, cấu hình zsh của CachyOS ghi file ngay mỗi lệnh)
+    for f in "${HISTFILE:-}" \
+             "$target_home/.bash_history" \
+             "$target_home/.zsh_history" \
+             "$target_home/.local/share/fish/fish_history" \
+             "$target_home/.local/share/fish/fish_history.bak"; do
+        [ -n "$f" ] && [ -f "$f" ] && : > "$f"
     done
 
-    # Nếu đang chạy bằng sudo/root thì xóa luôn history của root
+    # Chạy bằng sudo/root thì xóa luôn history của root
     if [ "$(id -u)" -eq 0 ] && [ "$target_home" != "/root" ]; then
         for f in /root/.bash_history /root/.zsh_history; do
             [ -f "$f" ] && : > "$f"
         done
     fi
 
-    echo "Đã xóa lịch sử lệnh (file history của $target_user)."
-    echo "Để xóa nốt lịch sử của phiên shell hiện tại, chạy: history -c && history -w"
+    echo "Đã xóa file lịch sử lệnh của $target_user."
+
+    # Được source? Khi đó history -c tác động thẳng vào shell đang dùng.
+    # (Không dùng mẹo `(return 0)` vì bên trong hàm nó luôn thành công.)
+    [ "${BASH_SOURCE[0]}" != "$0" ] && sourced=1
+
+    if [ "$sourced" -eq 1 ]; then
+        history -c 2>/dev/null
+        history -d 0 2>/dev/null
+        history -w 2>/dev/null
+        echo "Đã xóa lịch sử trong bộ nhớ của phiên hiện tại."
+        return 0
+    fi
+
+    # Chạy ở subshell: không chạm được history trong RAM của shell cha.
+    shell_pid=$(parent_shell_pid) || {
+        echo "Không xác định được shell cha."
+        echo "Hãy tự chạy: history -c && history -w"
+        return 0
+    }
+    shell_name=$(ps -o comm= -p "$shell_pid" 2>/dev/null | tr -d ' -')
+
+    echo
+    echo "Lưu ý: lịch sử vẫn còn trong bộ nhớ của terminal ($shell_name, PID $shell_pid)"
+    echo "và sẽ được ghi đè lại xuống file khi bạn đóng terminal."
+    read -rp "Đóng luôn terminal để xóa triệt để? [y/N] " ans
+
+    case "$ans" in
+        [yY]*)
+            echo "Đang đóng phiên terminal..."
+            # SIGKILL để shell không kịp ghi history trong RAM xuống file
+            kill -9 "$shell_pid" 2>/dev/null
+            ;;
+        *)
+            echo "Bỏ qua. Muốn xóa nốt phần trong bộ nhớ, chạy thủ công:"
+            case "$shell_name" in
+                fish) echo "    history clear" ;;
+                zsh)  echo "    history -p" ;;
+                *)    echo "    history -c && history -w" ;;
+            esac
+            ;;
+    esac
 }
 
 show_menu() {
