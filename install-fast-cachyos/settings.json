@@ -19,11 +19,11 @@
             "type": "root"
         }
     ],
-    "hostname": "may-01",
-    "locale": "en_US",
+    "hostname": "tp1",
+    "locale": "en_US.UTF-8",
     "xkbmap": "us",
     "timezone": "Asia/Ho_Chi_Minh",
-    "user_name": "1",
+    "user_name": "tp1",
     "user_pass": "Khanhnhat839",
     "user_shell": "/bin/bash",
     "root_pass": "Khanhnhat839",

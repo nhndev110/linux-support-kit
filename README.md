@@ -21,7 +21,7 @@ B=https://raw.githubusercontent.com/nhndev110/linux-support-kit/main/install-fas
 ```
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/install-fast-cachyos/settings.json -o settings.json  && sudo cachyos && sudo reboot
+curl -fsSL https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/install-fast-cachyos/settings.json -o settings.json  && sudo cachyos-installer && sudo reboot
 ```
 
 ### Debian
