@@ -23,12 +23,12 @@
     "locale": "en_US",
     "xkbmap": "us",
     "timezone": "Asia/Ho_Chi_Minh",
-    "user_name": "admin",
-    "user_pass": "matkhau",
+    "user_name": "1",
+    "user_pass": "Khanhnhat839",
     "user_shell": "/bin/bash",
-    "root_pass": "matkhauroot",
+    "root_pass": "Khanhnhat839",
     "kernel": "linux-cachyos",
     "desktop": "kde",
     "bootloader": "systemd-boot",
-    "post_install": "/root/hau-cai-dat.sh"
+    "post_install": "/root/post-install.sh"
 }
