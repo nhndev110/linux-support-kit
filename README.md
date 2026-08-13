@@ -28,6 +28,12 @@ curl -fsSL https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/he
 wget -qO setup-debian13.sh https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/setup-debian13.sh && chmod +x setup-debian13.sh && ./setup-debian13.sh
 ```
 
+(comming soon)
+
+```bash
+B=https://raw.githubusercontent.com/nhndev110/linux-support-kit/main/install-fast-cachyos; cd /root && for f in settings.json post-install.sh configure-system.sh; do curl -fsSLo "$f" "$B/$f" || { echo "LỖI tải $f"; break; }; done && chmod +x post-install.sh configure-system.sh && cachyos-installer
+```
+
 > 💡 Xem chi tiết **script làm những gì** tại [Support-Linux.md](Support-Linux.md#script-setup-nhanh-linux--script-làm-những-gì).
 
 ---
