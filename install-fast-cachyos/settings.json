@@ -25,7 +25,7 @@
     "timezone": "Asia/Ho_Chi_Minh",
     "user_name": "tp1",
     "user_pass": "Khanhnhat839",
-    "user_shell": "/bin/bash",
+    "user_shell": "/usr/bin/fish",
     "root_pass": "Khanhnhat839",
     "kernel": "linux-cachyos",
     "desktop": "kde",
