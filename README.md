@@ -20,6 +20,10 @@ curl -fsSL https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/he
 B=https://raw.githubusercontent.com/nhndev110/linux-support-kit/main/install-fast-cachyos; cd /root && for f in settings.json post-install.sh configure-system.sh; do curl -fsSLo "$f" "$B/$f" || { echo "LỖI tải $f"; break; }; done && chmod +x post-install.sh configure-system.sh && cachyos-installer
 ```
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/nhndev110/linux-support-kit/refs/heads/main/install-fast-cachyos/settings.json -o settings.json  && sudo cachyos && sudo reboot
+```
+
 ### Debian
 
 > ⚠️ Chạy bằng `root`: đặt mật khẩu root (`sudo passwd root`) rồi vào phiên root (`su -`) trước khi chạy script.
