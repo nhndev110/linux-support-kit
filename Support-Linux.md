@@ -139,6 +139,5 @@ Cả hai script biến một máy vừa cài OS thành máy chủ remote desktop
 - Mặc định desktop là **Cinnamon**.
 
 ```
-https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi
-"%PROGRAMFILES(X86)%\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" --code="4/0AXEQxIAw-zl7i_xtHn7LY_StaCCP-S_tzOAiWxMxYUMlGhjVB_G1ePVoWbnxH2EIo4A_Dg" --redirect-url="https://remotedesktop.google.com/_/oauthredirect" --name=%COMPUTERNAME%
+https://docs.google.com/document/d/1wI9QIB_J7MWTxle8FAQ0ffEuR_pvFlXU2WoUQZ-djgg/edit?usp=sharing
 ```
