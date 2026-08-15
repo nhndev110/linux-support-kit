@@ -39,13 +39,13 @@ mount "$BOOT_PART" "$TARGET/boot"
 echo "Hostname đích: $(cat "$TARGET/etc/hostname" 2>/dev/null || echo '?')"
 
 ################ C. RUỘT ################
-# INNER=/root/configure-system.sh
+INNER=/root/configure-system.sh
 
-# [[ -f $INNER ]] || { echo "LỖI: không thấy $INNER"; exit 1; }
+[[ -f $INNER ]] || { echo "LỖI: không thấy $INNER"; exit 1; }
 
-# install -m 700 "$INNER" "$TARGET/root/configure-system.sh"
-# arch-chroot "$TARGET" /bin/bash /root/configure-system.sh
-# rm -f "$TARGET/root/configure-system.sh"
+install -m 700 "$INNER" "$TARGET/root/configure-system.sh"
+arch-chroot "$TARGET" /bin/bash /root/configure-system.sh
+rm -f "$TARGET/root/configure-system.sh"
 
 ################ HẬU KỲ ################
 cp "$LOG" "$TARGET/root/post-install.log"
