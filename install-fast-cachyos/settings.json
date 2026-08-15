@@ -30,5 +30,5 @@
     "kernel": "linux-cachyos",
     "desktop": "kde",
     "bootloader": "systemd-boot",
-    "post_install": "/post-install.sh"
+    "post_install": "/root/post-install.sh"
 }

@@ -15,9 +15,10 @@ BASE=https://raw.githubusercontent.com/nhndev110/linux-support-kit/main/install-
 FILES=(settings.json post-install.sh configure-system.sh)
 DEST=/root
 
-RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; NC='\033[0m'
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 info() { echo -e "${BLUE}[INFO]${NC} $*"; }
 ok()   { echo -e "${GREEN}[OK]${NC}   $*"; }
+warn() { echo -e "${YELLOW}[!]${NC}    $*"; }
 err()  { echo -e "${RED}[LỖI]${NC}  $*" >&2; }
 
 [[ $EUID -eq 0 ]] || { err "Cần chạy bằng root — thêm 'sudo'."; exit 1; }
@@ -40,4 +41,14 @@ ls -l "${FILES[@]}"
 
 echo
 info "Mở cachyos-installer — chọn 'Load config' và trỏ tới $DEST/settings.json"
-exec cachyos-installer
+cachyos-installer
+
+# Installer chạy xong (đã gồm cả post-install.sh) → khởi động lại vào hệ thống mới
+echo
+warn "Máy sẽ khởi động lại sau 10 giây... (Ctrl+C để hủy)"
+for i in $(seq 10 -1 1); do
+    printf "\r${YELLOW}[!]${NC}    Reboot sau %2d giây... " "$i"
+    sleep 1
+done
+echo
+reboot
