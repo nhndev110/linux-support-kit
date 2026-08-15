@@ -39,14 +39,30 @@ mount "$BOOT_PART" "$TARGET/boot"
 echo "Hostname đích: $(cat "$TARGET/etc/hostname" 2>/dev/null || echo '?')"
 
 ################ C. RUỘT ################
+# Không chạy configure-system.sh trong arch-chroot: nó cần systemd đang chạy
+# (systemctl, nmcli), cần mạng và cần paru chạy dưới user thường. Ở đây chỉ chép
+# nó vào home của user trong hệ thống đã cài, để chạy sau khi boot.
 INNER=/root/configure-system.sh
 
 [[ -f $INNER ]] || { echo "LỖI: không thấy $INNER"; exit 1; }
 
-install -m 700 "$INNER" "$TARGET/root/configure-system.sh"
-arch-chroot "$TARGET" /bin/bash /root/configure-system.sh
-rm -f "$TARGET/root/configure-system.sh"
+# Lấy user thường: ưu tiên settings.json, không có thì lấy UID >= 1000 đầu tiên
+USER_NAME=$(awk -F'"' '/"user_name"/{print $4}' /root/settings.json 2>/dev/null || true)
+[[ -z ${USER_NAME:-} ]] && \
+    USER_NAME=$(awk -F: '$3>=1000 && $3<65534 {print $1; exit}' "$TARGET/etc/passwd")
+[[ -n ${USER_NAME:-} ]] || { echo "LỖI: không xác định được user thường"; exit 1; }
 
-################ HẬU KỲ ################
+# UID/GID/home đọc từ /etc/passwd của HỆ ĐÍCH, không phải của live ISO
+PW_LINE=$(grep "^${USER_NAME}:" "$TARGET/etc/passwd") \
+    || { echo "LỖI: không thấy user '$USER_NAME' trong $TARGET/etc/passwd"; exit 1; }
+IFS=: read -r _ _ U_UID U_GID _ U_HOME _ <<<"$PW_LINE"
+echo "user=$USER_NAME uid=$U_UID gid=$U_GID home=$U_HOME"
+
+[[ -d $TARGET$U_HOME ]] || { echo "LỖI: không thấy home $U_HOME trong hệ đích"; exit 1; }
+
+install -m 755 -o "$U_UID" -g "$U_GID" "$INNTARGET$U_HOME/configure-system.sh"
+echo "Đã chép script cấu hình vào $U_HOME/configure-system.sh"
+
+################ HẬU KỲ ################ER" "$
 cp "$LOG" "$TARGET/root/post-install.log"
 echo "=== Xong ==="
