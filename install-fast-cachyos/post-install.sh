@@ -60,9 +60,9 @@ echo "user=$USER_NAME uid=$U_UID gid=$U_GID home=$U_HOME"
 
 [[ -d $TARGET$U_HOME ]] || { echo "LỖI: không thấy home $U_HOME trong hệ đích"; exit 1; }
 
-install -m 755 -o "$U_UID" -g "$U_GID" "$INNTARGET$U_HOME/configure-system.sh"
+install -m 755 -o "$U_UID" -g "$U_GID" "$INNER" "$TARGET$U_HOME/configure-system.sh"
 echo "Đã chép script cấu hình vào $U_HOME/configure-system.sh"
 
-################ HẬU KỲ ################ER" "$
+################ HẬU KỲ ################
 cp "$LOG" "$TARGET/root/post-install.log"
 echo "=== Xong ==="
