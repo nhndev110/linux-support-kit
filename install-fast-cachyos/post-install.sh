@@ -108,6 +108,19 @@ ln -sf ../configure-system.service \
     "$TARGET/etc/systemd/system/multi-user.target.wants/configure-system.service"
 echo "Đã bật configure-system.service (chạy ở lần khởi động đầu tiên)"
 
+# Cho phép sudo không cần mật khẩu, CHỈ để script cấu hình chạy suôn một mạch.
+# configure-system.sh tự xóa file này ở bước cuối khi mọi bước đều OK.
+SUDOERS_DROPIN="$TARGET/etc/sudoers.d/99-configure-system"
+mkdir -p "$TARGET/etc/sudoers.d"
+printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$USER_NAME" > "$SUDOERS_DROPIN"
+chmod 440 "$SUDOERS_DROPIN"
+# Sudoers sai cú pháp là mất luôn quyền sudo của cả máy — kiểm tra trước khi để lại
+if command -v visudo &>/dev/null; then
+    visudo -cf "$SUDOERS_DROPIN" \
+        || { rm -f "$SUDOERS_DROPIN"; echo "LỖI: sudoers drop-in sai cú pháp, đã xóa"; exit 1; }
+fi
+echo "Đã cấp NOPASSWD tạm thời cho '$USER_NAME'"
+
 ################ HẬU KỲ ################
 cp "$LOG" "$TARGET/root/post-install.log"
 echo "=== Xong ==="

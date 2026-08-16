@@ -250,6 +250,10 @@ die_step() {
   err "  • Máy sẽ KHÔNG khởi động lại."
   err "  • Script KHÔNG bị xóa."
   err "  • Sửa lỗi xong chạy lại: $0"
+  # Giữ lại NOPASSWD để lần chạy sau không phải nhập mật khẩu, nhưng phải báo rõ:
+  # bỏ quên file này là để hở quyền root không cần mật khẩu trên máy giao cho khách
+  [[ -f /etc/sudoers.d/99-configure-system ]] && \
+    err "  • CHÚ Ý: /etc/sudoers.d/99-configure-system vẫn còn (sudo không cần mật khẩu)."
   exit 1
 }
 
@@ -528,6 +532,15 @@ echo
 info "Hướng dẫn sử dụng:"
 echo "  • Kết nối RDP từ máy khác tới: <IP-máy-này>:${XRDP_PORT}"
 echo "  • Kiểm tra IP hiện tại bằng: ip a"
+
+# --- Thu hồi quyền sudo không mật khẩu (do post-install.sh cấp tạm) ---
+# Phải làm TRƯỚC khi xóa script: xóa xong là mất luôn đường chạy lại để dọn
+SUDOERS_DROPIN=/etc/sudoers.d/99-configure-system
+if [[ -f "$SUDOERS_DROPIN" ]]; then
+  info "Thu hồi quyền sudo không mật khẩu: $SUDOERS_DROPIN"
+  sudo rm -f "$SUDOERS_DROPIN" && ok "Đã thu hồi NOPASSWD." \
+    || warn "KHÔNG gỡ được $SUDOERS_DROPIN — hãy xóa tay!"
+fi
 
 # --- Tự xóa file script (chỉ khi mọi bước đều thành công) ---
 SCRIPT_PATH="$(realpath "$0")"
