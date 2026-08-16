@@ -60,8 +60,53 @@ echo "user=$USER_NAME uid=$U_UID gid=$U_GID home=$U_HOME"
 
 [[ -d $TARGET$U_HOME ]] || { echo "LỖI: không thấy home $U_HOME trong hệ đích"; exit 1; }
 
-install -m 755 -o "$U_UID" -g "$U_GID" "$INNER" "$TARGET$U_HOME/configure-system.sh"
-echo "Đã chép script cấu hình vào $U_HOME/configure-system.sh"
+SCRIPT_DST="$U_HOME/configure-system.sh"
+install -m 755 -o "$U_UID" -g "$U_GID" "$INNER" "$TARGET$SCRIPT_DST"
+echo "Đã chép script cấu hình vào $SCRIPT_DST"
+
+################ D. SERVICE CHẠY LẦN ĐẦU ################
+# Chạy TRƯỚC display-manager nên không phải đăng nhập: service chiếm tty1 và giữ
+# SDDM lại cho tới khi cấu hình xong (Type=oneshot mới có ràng buộc "xong" này).
+# Chỉ chạy một lần: script tự xóa mình khi mọi bước OK -> ConditionPathExists sai
+# ở lần boot sau. Nếu script chết giữa chừng thì file còn -> boot lại là chạy lại.
+cat > "$TARGET/etc/systemd/system/configure-system.service" <<EOF
+[Unit]
+Description=Cau hinh lan dau sau khi cai dat
+ConditionPathExists=$SCRIPT_DST
+Wants=network-online.target
+After=network-online.target systemd-user-sessions.service
+Before=display-manager.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=$USER_NAME
+WorkingDirectory=$U_HOME
+# systemd không tự đặt HOME/USER như lúc login; thiếu thì .xinitrc và config KDE
+# sẽ bị ghi sai chỗ. TERM=linux để phần in màu hiển thị đúng trên tty.
+Environment=HOME=$U_HOME USER=$USER_NAME TERM=linux
+ExecStart=/bin/bash $SCRIPT_DST
+# tty-force: giành tty1 kể cả khi getty đang giữ. Thiếu stdin thì mọi lệnh 'read'
+# nhận EOF và script chạy tuột qua hết phần hỏi cấu hình.
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+# Không đặt timeout: pacman -Syu + build AUR rất lâu, và script còn ngồi chờ nhập
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+chmod 644 "$TARGET/etc/systemd/system/configure-system.service"
+
+# Enable bằng symlink tay — tương đương 'systemctl enable', khỏi cần chroot
+mkdir -p "$TARGET/etc/systemd/system/multi-user.target.wants"
+ln -sf ../configure-system.service \
+    "$TARGET/etc/systemd/system/multi-user.target.wants/configure-system.service"
+echo "Đã bật configure-system.service (chạy ở lần khởi động đầu tiên)"
 
 ################ HẬU KỲ ################
 cp "$LOG" "$TARGET/root/post-install.log"
