@@ -3,17 +3,17 @@
     "headless_mode": true,
     "fs_name": "btrfs",
     "subvolumes": "default",
-    "device": "/dev/sda",
+    "device": "/dev/nvme0n1",
     "partitions": [
         {
-            "name": "/dev/sda1",
+            "name": "/dev/nvme0n1p1",
             "mountpoint": "/boot",
             "size": "1G",
             "fs_name": "vfat",
             "type": "boot"
         },
         {
-            "name": "/dev/sda2",
+            "name": "/dev/nvme0n1p2",
             "mountpoint": "/",
             "size": "100%",
             "type": "root"
