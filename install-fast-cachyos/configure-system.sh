@@ -12,6 +12,13 @@
 
 set -uo pipefail
 
+# ---------- Ghi log ra file ----------
+# Chạy qua systemd thì unit đặt StandardOutput=tty, output chỉ hiện trên tty1 rồi
+# trôi mất — không có gì trong journalctl. Giữ thêm một bản ra file để soi lại được.
+LOGFILE="${HOME:-/tmp}/configure-system.log"
+exec > >(tee -a "$LOGFILE") 2>&1
+echo "=== configure-system $(date -Is) ==="
+
 # ---------- Hàm log có màu ----------
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 info() { echo -e "${BLUE}[INFO]${NC} $*"; }
@@ -60,12 +67,19 @@ if ! command -v paru &>/dev/null; then
   command -v paru &>/dev/null && ok "Đã cài paru." || { err "Không tìm thấy lệnh paru."; exit 1; }
 fi
 
-# Xin quyền sudo ngay từ đầu và giữ "sống" trong suốt quá trình
-info "Cần quyền sudo để cấu hình hệ thống — nhập mật khẩu nếu được hỏi:"
-sudo -v || { err "Không lấy được quyền sudo."; exit 1; }
-( while true; do sudo -n true; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) &
-KEEPALIVE_PID=$!
-trap 'kill "$KEEPALIVE_PID" 2>/dev/null' EXIT
+# Xin quyền sudo ngay từ đầu và giữ "sống" trong suốt quá trình.
+# Thử 'sudo -n true' TRƯỚC: khi đã có NOPASSWD (post-install.sh cấp tạm) thì không
+# cần hỏi gì cả. Không dùng 'sudo -v' ở trường hợp này vì '-v' xác thực theo đường
+# riêng và vẫn bật hộp hỏi mật khẩu dù sudoers đã cho !authenticate.
+if sudo -n true 2>/dev/null; then
+  ok "Đã có quyền sudo không cần mật khẩu."
+else
+  info "Cần quyền sudo để cấu hình hệ thống — nhập mật khẩu nếu được hỏi:"
+  sudo -v || { err "Không lấy được quyền sudo."; exit 1; }
+  ( while true; do sudo -n true; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) &
+  KEEPALIVE_PID=$!
+  trap 'kill "$KEEPALIVE_PID" 2>/dev/null' EXIT
+fi
 
 # ############################################################
 # PHẦN A: THU THẬP THÔNG TIN TỪ NGƯỜI DÙNG (hỏi hết một lượt)
