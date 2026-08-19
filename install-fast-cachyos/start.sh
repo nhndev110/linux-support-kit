@@ -39,8 +39,30 @@ chmod +x post-install.sh configure-system.sh
 ok "Đã tải xong vào $DEST:"
 ls -l "${FILES[@]}"
 
+################ LÀM TƯƠI MIRROR ################
+# CachyOS là rolling release: database gói đóng sẵn trong ISO nhanh chóng lệch với
+# kho gói thật. Pacman xin đúng tên file mà mirror đã xoay vòng và xóa -> 404 ->
+# installer chết giữa chừng ("Failed to install packages to new root").
+# Mirror đang sync dở cũng gây lỗi tương tự (thiếu file .sig).
+echo
+info "Làm tươi mirror + database gói trước khi cài..."
+
+# -Syy (hai chữ y) ép tải lại toàn bộ database thay vì dùng bản cache trong ISO
+pacman -Syy --noconfirm || warn "pacman -Syy lỗi — vẫn thử đi tiếp"
+
+# Đo lại mirror và viết lại mirrorlist, loại luôn mirror hỏng/chậm
+if command -v cachyos-rate-mirrors &>/dev/null; then
+    cachyos-rate-mirrors || warn "cachyos-rate-mirrors lỗi — giữ mirrorlist cũ"
+    # Đổi mirrorlist thì database cũ không còn khớp, phải nạp lại
+    pacman -Syy --noconfirm || warn "pacman -Syy sau khi đổi mirror lỗi"
+    ok "Đã cập nhật mirrorlist và database."
+else
+    warn "Không có cachyos-rate-mirrors — giữ nguyên mirrorlist của ISO."
+fi
+
 echo
 info "Mở cachyos-installer — chọn 'Load config' và trỏ tới $DEST/settings.json"
+info "Nếu vẫn lỗi 404 khi cài: ISO quá cũ, hãy tải ISO mới."
 cachyos-installer
 
 # Installer chạy xong (đã gồm cả post-install.sh) → khởi động lại vào hệ thống mới
