@@ -82,6 +82,11 @@ ConditionPathExists=$SCRIPT_DST
 Wants=network-online.target
 After=network-online.target systemd-user-sessions.service
 Before=display-manager.service
+# Bắt buộc: chỉ 'tty-force' thôi thì agetty vẫn giữ tty1 và vẽ đè lên script,
+# khoảng 2 giây sau khi service chạy là màn hình nhảy về 'tty1 login:'.
+# Conflicts bảo systemd DỪNG getty@tty1 trong lúc service chạy, và tự bật lại sau.
+Conflicts=getty@tty1.service
+After=getty@tty1.service
 
 [Service]
 Type=oneshot

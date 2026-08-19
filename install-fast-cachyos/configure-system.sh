@@ -306,11 +306,22 @@ begin_step "Kiểm tra desktop và display manager"
 if [[ -e /etc/systemd/system/display-manager.service ]]; then
   pass_step "đã có display manager"
 elif [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
-  info "Chưa có display manager — cài KDE Plasma + SDDM..."
-  must sudo pacman -S --needed --noconfirm plasma-meta sddm konsole dolphin
-  must sudo systemctl enable sddm
-  verify "sddm chưa được enable" test -e /etc/systemd/system/display-manager.service
-  pass_step "đã cài plasma-meta + sddm"
+  info "Chưa có display manager — cài KDE Plasma..."
+  # KDE đã thay SDDM bằng plasma-login-manager từ Plasma 6.5, nên không hardcode
+  # tên gói: hỏi repo xem cái nào có thật rồi mới dùng. Tên service trùng tên gói.
+  DM_PKG=""
+  for p in plasma-login-manager sddm; do
+    if pacman -Si "$p" &>/dev/null; then DM_PKG="$p"; break; fi
+  done
+  [[ -n "$DM_PKG" ]] || die_step "repo không có plasma-login-manager lẫn sddm"
+  info "Display manager sẽ dùng: $DM_PKG"
+  # xorg-server/xorg-xinit cũng nằm trong danh sách installer cài hụt, mà bước 7
+  # (~/.xinitrc + startplasma-x11) thì bắt buộc phải có chúng
+  must sudo pacman -S --needed --noconfirm \
+       plasma-meta "$DM_PKG" konsole dolphin xorg-server xorg-xinit
+  must sudo systemctl enable "$DM_PKG"
+  verify "$DM_PKG chưa được enable" test -e /etc/systemd/system/display-manager.service
+  pass_step "đã cài plasma-meta + $DM_PKG"
 else
   skip_step "chưa có display manager, DE này chưa có bước cài tự động — phải cài tay"
 fi
