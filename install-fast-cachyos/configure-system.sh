@@ -218,7 +218,7 @@ ok "Đã thu thập xong cấu hình. Bắt đầu cài đặt..."
 #   BỎ QUA  = không áp dụng / không bắt buộc, không tính là lỗi
 #   LỖI     = thất bại → dừng script, KHÔNG reboot
 # TOTAL_STEPS chỉ dùng để hiển thị "Bước N/TOTAL" — nhớ cập nhật khi thêm/bớt begin_step
-TOTAL_STEPS=14
+TOTAL_STEPS=15
 STEP_TITLES=()
 STEP_STATES=()
 STEP_NOTES=()
@@ -297,14 +297,32 @@ begin_step "Cập nhật hệ thống (pacman -Syu)"
 must sudo pacman -Syu --noconfirm
 pass_step
 
-# --- Bước 2: Cài xrdp và xorgxrdp (qua paru / AUR) ---
+# --- Bước 2: Đảm bảo có desktop + màn hình đăng nhập ---
+begin_step "Kiểm tra desktop và display manager"
+# cachyos-installer ở headless_mode KHÔNG cài desktop dù settings.json ghi
+# "desktop": "kde" — máy boot xong rơi thẳng vào tty1. Bù lại ở đây.
+# /etc/systemd/system/display-manager.service là symlink do 'systemctl enable <dm>'
+# tạo ra; không có nó nghĩa là không có màn hình đăng nhập nào chạy.
+if [[ -e /etc/systemd/system/display-manager.service ]]; then
+  pass_step "đã có display manager"
+elif [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
+  info "Chưa có display manager — cài KDE Plasma + SDDM..."
+  must sudo pacman -S --needed --noconfirm plasma-meta sddm konsole dolphin
+  must sudo systemctl enable sddm
+  verify "sddm chưa được enable" test -e /etc/systemd/system/display-manager.service
+  pass_step "đã cài plasma-meta + sddm"
+else
+  skip_step "chưa có display manager, DE này chưa có bước cài tự động — phải cài tay"
+fi
+
+# --- Bước 3: Cài xrdp và xorgxrdp (qua paru / AUR) ---
 begin_step "Cài đặt xrdp + xorgxrdp"
 must paru -S --noconfirm xrdp xorgxrdp
 verify "không tìm thấy lệnh xrdp sau khi cài" command -v xrdp
 verify "không tìm thấy /etc/xrdp/xrdp.ini" test -f /etc/xrdp/xrdp.ini
 pass_step "$(xrdp -v 2>/dev/null | head -n1)"
 
-# --- Bước 3: Tạo chứng chỉ (cert) tự động [không bắt buộc] ---
+# --- Bước 4: Tạo chứng chỉ (cert) tự động [không bắt buộc] ---
 begin_step "Tạo chứng chỉ (cert) cho xrdp"
 if command -v xrdp-keygen &>/dev/null; then
   if sudo xrdp-keygen xrdp auto; then
@@ -316,13 +334,13 @@ else
   skip_step "không có xrdp-keygen — service tự tạo cert khi khởi động"
 fi
 
-# --- Bước 4: Kích hoạt dịch vụ xrdp ---
+# --- Bước 5: Kích hoạt dịch vụ xrdp ---
 begin_step "Kích hoạt dịch vụ xrdp"
 must sudo systemctl enable --now xrdp
 verify "xrdp chưa được enable" systemctl is-enabled xrdp
 pass_step
 
-# --- Bước 5: Đổi port trong /etc/xrdp/xrdp.ini ---
+# --- Bước 6: Đổi port trong /etc/xrdp/xrdp.ini ---
 begin_step "Đặt port xrdp = ${XRDP_PORT}"
 # Chỉ thay dòng 'port=' ĐẦU TIÊN (nằm trong [Globals]), không đụng port của session
 must sudo sed -i -E "0,/^port=.*/s//port=${XRDP_PORT}/" /etc/xrdp/xrdp.ini
@@ -330,7 +348,7 @@ verify "không thấy dòng port=${XRDP_PORT} trong /etc/xrdp/xrdp.ini" \
   grep -qx "port=${XRDP_PORT}" /etc/xrdp/xrdp.ini
 pass_step "port=${XRDP_PORT}"
 
-# --- Bước 6: Cấu hình ~/.xinitrc theo Desktop Environment ---
+# --- Bước 7: Cấu hình ~/.xinitrc theo Desktop Environment ---
 begin_step "Ghi ~/.xinitrc cho phiên desktop"
 # Nếu chọn KDE Plasma (X11) thì đảm bảo có kwin-x11 (Arch đã tách kwin-x11/kwin-wayland)
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
@@ -351,14 +369,14 @@ verify "~/.xinitrc không chứa lệnh session mong muốn" \
   grep -qF "$SESSION_CMD" "$HOME/.xinitrc"
 pass_step "$SESSION_CMD"
 
-# --- Bước 7: Khởi động lại xrdp ---
+# --- Bước 8: Khởi động lại xrdp ---
 begin_step "Khởi động lại dịch vụ xrdp"
 must sudo systemctl restart xrdp
 sleep 2   # cho service kịp lên trước khi kiểm tra cờ
 verify "xrdp không ở trạng thái active (xem: journalctl -u xrdp)" systemctl is-active xrdp
 pass_step "active"
 
-# --- Bước 8: Tắt tường lửa ufw [không bắt buộc] ---
+# --- Bước 9: Tắt tường lửa ufw [không bắt buộc] ---
 begin_step "Tắt tường lửa ufw"
 if command -v ufw &>/dev/null; then
   must sudo ufw disable
@@ -367,7 +385,7 @@ else
   skip_step "không có ufw trên máy — không cần tắt"
 fi
 
-# --- Bước 9: Cấu hình IP tĩnh (tùy chọn) — qua nmcli (NetworkManager) ---
+# --- Bước 10: Cấu hình IP tĩnh (tùy chọn) — qua nmcli (NetworkManager) ---
 begin_step "Cấu hình IP tĩnh"
 if [[ "$STATIC_IP" == true ]]; then
   # Gộp DNS chính + phụ (nếu có)
@@ -388,14 +406,14 @@ else
   skip_step "người dùng chọn không đặt IP tĩnh (giữ DHCP)"
 fi
 
-# --- Bước 10: Tắt auto sleep / hibernate (giữ máy luôn thức cho XRDP) ---
+# --- Bước 11: Tắt auto sleep / hibernate (giữ máy luôn thức cho XRDP) ---
 begin_step "Tắt auto sleep / hibernate"
 must sudo systemctl mask hibernate.target hybrid-sleep.target sleep.target suspend-then-hibernate.target suspend.target
 verify "sleep.target chưa bị mask" \
   bash -c 'systemctl is-enabled sleep.target 2>/dev/null | grep -qx masked'
 pass_step "máy sẽ không tự ngủ"
 
-# --- Bước 11: Tắt khóa màn hình tự động (screen lock) ---
+# --- Bước 12: Tắt khóa màn hình tự động (screen lock) ---
 begin_step "Tắt khóa màn hình tự động"
 # KDE Plasma — tắt qua powerdevilrc (quản lý năng lượng) của user.
 # Dấu '--' trước giá trị là bắt buộc: thiếu nó, kwriteconfig hiểu '-1' là tùy chọn.
@@ -456,7 +474,7 @@ else
   skip_step "DE này không có bước riêng — đã dùng 'xset s off' trong ~/.xinitrc"
 fi
 
-# --- Bước 12: Đặt ảnh nền chuẩn [không bắt buộc] ---
+# --- Bước 13: Đặt ảnh nền chuẩn [không bắt buộc] ---
 begin_step "Đặt ảnh nền từ wallpaper-store"
 # Tải về tên cố định (không theo ngày như tên file nguồn) để file cấu hình khỏi phải đổi theo
 WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00.jpg"
@@ -503,7 +521,7 @@ else
   fi
 fi
 
-# --- Bước 13: Đổi mật khẩu cho user + root ---
+# --- Bước 14: Đổi mật khẩu cho user + root ---
 begin_step "Đổi mật khẩu cho user '$USER' và root"
 if [[ "$SET_PASS" == true ]]; then
   echo "$USER:$NEWPASS" | sudo chpasswd || die_step "không đổi được mật khẩu cho '$USER'"
@@ -513,7 +531,7 @@ else
   skip_step "người dùng chọn không đổi mật khẩu"
 fi
 
-# --- Bước 14: Cài đặt SCADA agent [không bắt buộc] ---
+# --- Bước 15: Cài đặt SCADA agent [không bắt buộc] ---
 begin_step "Cài đặt SCADA agent (scada.tpservers.com)"
 if curl -fsSL https://scada.tpservers.com/agent | sudo bash -s -- -pa scada; then
   pass_step

@@ -22,7 +22,13 @@ echo "disk=$DISK root=$ROOT_PART ($ROOT_FS) boot=$BOOT_PART"
 [[ -n $ROOT_PART && -n $BOOT_PART ]] || { echo "LỖI: không tìm thấy phân vùng"; exit 1; }
 
 ################ B. MOUNT ################
-cleanup() { sync; umount -R "$TARGET" 2>/dev/null || true; }
+# Chép log vào hệ đích NGAY TRONG TRAP, trước khi umount: đặt ở cuối script thì
+# hễ chết giữa chừng là mất sạch log (log gốc nằm ở /tmp của live ISO, reboot là bay).
+cleanup() {
+    sync
+    cp "$LOG" "$TARGET/root/post-install.log" 2>/dev/null || true
+    umount -R "$TARGET" 2>/dev/null || true
+}
 trap cleanup EXIT
 
 if [[ $ROOT_FS == btrfs ]]; then
@@ -114,13 +120,16 @@ SUDOERS_DROPIN="$TARGET/etc/sudoers.d/99-configure-system"
 mkdir -p "$TARGET/etc/sudoers.d"
 printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$USER_NAME" > "$SUDOERS_DROPIN"
 chmod 440 "$SUDOERS_DROPIN"
-# Sudoers sai cú pháp là mất luôn quyền sudo của cả máy — kiểm tra trước khi để lại
-if command -v visudo &>/dev/null; then
-    visudo -cf "$SUDOERS_DROPIN" \
-        || { rm -f "$SUDOERS_DROPIN"; echo "LỖI: sudoers drop-in sai cú pháp, đã xóa"; exit 1; }
+# Sudoers sai cú pháp là mất luôn quyền sudo của cả máy — kiểm tra trước khi để lại.
+# Không qua được thì chỉ xóa file và cảnh báo: cùng lắm là phải nhập mật khẩu tay,
+# không đáng để làm hỏng cả lần cài máy.
+if command -v visudo &>/dev/null && ! visudo -cf "$SUDOERS_DROPIN"; then
+    rm -f "$SUDOERS_DROPIN"
+    echo "CẢNH BÁO: sudoers drop-in không qua visudo -c, đã xóa (sẽ phải nhập mật khẩu tay)"
+else
+    echo "Đã cấp NOPASSWD tạm thời cho '$USER_NAME'"
 fi
-echo "Đã cấp NOPASSWD tạm thời cho '$USER_NAME'"
 
 ################ HẬU KỲ ################
-cp "$LOG" "$TARGET/root/post-install.log"
+# Log do trap cleanup chép sang $TARGET/root/post-install.log
 echo "=== Xong ==="
