@@ -316,8 +316,13 @@ elif [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   [[ -n "$DM_PKG" ]] || die_step "repo không có plasma-login-manager lẫn sddm"
   info "Display manager sẽ dùng: $DM_PKG"
   # xorg-server/xorg-xinit cũng nằm trong danh sách installer cài hụt, mà bước 7
-  # (~/.xinitrc + startplasma-x11) thì bắt buộc phải có chúng
-  must sudo pacman -S --needed --noconfirm \
+  # (~/.xinitrc + startplasma-x11) thì bắt buộc phải có chúng.
+  # Dùng -Syu chứ không phải -S: gộp nâng cấp và cài đặt vào CÙNG một transaction
+  # là cách Arch khuyến nghị để tránh partial upgrade. Với -S, pacman chỉ được phép
+  # đụng vào gói ta liệt kê, nên khi bản mới kéo theo gói cũ hơn của gói đã cài
+  # (vd gstreamer -1.1 của CachyOS vs -1 của extra) nó bó tay và báo
+  # "breaks dependency". Với -Syu nó được nâng/hạ cả cụm cho khớp.
+  must sudo pacman -Syu --needed --noconfirm \
        plasma-meta "$DM_PKG" konsole dolphin xorg-server xorg-xinit
   must sudo systemctl enable "$DM_PKG"
   verify "$DM_PKG chưa được enable" test -e /etc/systemd/system/display-manager.service
@@ -364,7 +369,8 @@ begin_step "Ghi ~/.xinitrc cho phiên desktop"
 # Nếu chọn KDE Plasma (X11) thì đảm bảo có kwin-x11 (Arch đã tách kwin-x11/kwin-wayland)
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   info "Đảm bảo có kwin-x11 cho phiên Plasma X11..."
-  must sudo pacman -S --needed --noconfirm kwin-x11
+  # -Syu vì cùng lý do như bước 2: tránh 'breaks dependency' do partial upgrade
+  must sudo pacman -Syu --needed --noconfirm kwin-x11
   ok "kwin-x11 đã sẵn sàng."
 fi
 # Ghi ~/.xinitrc của USER (không dùng sudo — nếu dùng sudo sẽ ghi vào /root)
