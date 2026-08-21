@@ -208,6 +208,18 @@ if [[ "${PW_ANS,,}" == "y" ]]; then
   done
 fi
 
+# ---------- A5: Tailscale (tùy chọn) ----------
+echo
+info "Tailscale để truy cập máy từ xa khi cần kiểm tra."
+# CHÚ Ý: key nhúng sẵn ở đây và repo là public — ai đọc được file cũng ghép được
+# máy của họ vào tailnet. Khi key lộ hoặc hết hạn thì xoay key mới ở
+# https://login.tailscale.com/admin/settings/keys rồi sửa lại dòng dưới.
+TS_DEFAULT_KEY="tskey-auth-kTSDmtxMRi11CNTRL-qrcAg68G1m6Yqt2Ge1Z7m6iAqigcA57K"
+# Thứ tự ưu tiên: nhập tay > biến môi trường TS_AUTHKEY > key mặc định ở trên
+TS_KEY="${TS_AUTHKEY:-$TS_DEFAULT_KEY}"
+read -rp "Tailscale auth key [Enter = dùng key có sẵn]: " TS_INPUT
+[[ -n "$TS_INPUT" ]] && TS_KEY="$TS_INPUT"
+
 ok "Đã thu thập xong cấu hình. Bắt đầu cài đặt..."
 
 # ############################################################
@@ -218,7 +230,7 @@ ok "Đã thu thập xong cấu hình. Bắt đầu cài đặt..."
 #   BỎ QUA  = không áp dụng / không bắt buộc, không tính là lỗi
 #   LỖI     = thất bại → dừng script, KHÔNG reboot
 # TOTAL_STEPS chỉ dùng để hiển thị "Bước N/TOTAL" — nhớ cập nhật khi thêm/bớt begin_step
-TOTAL_STEPS=15
+TOTAL_STEPS=16
 STEP_TITLES=()
 STEP_STATES=()
 STEP_NOTES=()
@@ -297,7 +309,26 @@ begin_step "Cập nhật hệ thống (pacman -Syu)"
 must sudo pacman -Syu --noconfirm
 pass_step
 
-# --- Bước 2: Đảm bảo có desktop + màn hình đăng nhập ---
+# --- Bước 2: Cài đặt Tailscale [không bắt buộc] ---
+begin_step "Cài đặt Tailscale"
+# Đặt ngay sau bước cập nhật, TRƯỚC mọi bước nặng: nếu các bước sau hỏng thì vẫn
+# còn đường vào máy từ xa để đọc log — đúng mục đích dùng Tailscale ở đây.
+# Cả bước dùng if/elif chứ không dùng 'must': Tailscale là tiện ích phụ, key hết
+# hạn không đáng làm hỏng cả lần cài máy.
+if [[ -z "$TS_KEY" ]]; then
+  skip_step "không nhập auth key"
+elif ! sudo pacman -Syu --needed --noconfirm tailscale; then
+  skip_step "cài gói tailscale thất bại"
+elif ! sudo systemctl enable --now tailscaled; then
+  skip_step "không bật được tailscaled"
+elif sudo tailscale up --authkey="$TS_KEY"; then
+  TS_IP="$(tailscale ip -4 2>/dev/null | head -n1)"
+  pass_step "${TS_IP:-đã kết nối}"
+else
+  skip_step "tailscale up thất bại — key sai hoặc đã hết hạn?"
+fi
+
+# --- Bước 3: Đảm bảo có desktop + màn hình đăng nhập ---
 begin_step "Kiểm tra desktop và display manager"
 # cachyos-installer ở headless_mode KHÔNG cài desktop dù settings.json ghi
 # "desktop": "kde" — máy boot xong rơi thẳng vào tty1. Bù lại ở đây.
@@ -331,14 +362,14 @@ else
   skip_step "chưa có display manager, DE này chưa có bước cài tự động — phải cài tay"
 fi
 
-# --- Bước 3: Cài xrdp và xorgxrdp (qua paru / AUR) ---
+# --- Bước 4: Cài xrdp và xorgxrdp (qua paru / AUR) ---
 begin_step "Cài đặt xrdp + xorgxrdp"
 must paru -S --noconfirm xrdp xorgxrdp
 verify "không tìm thấy lệnh xrdp sau khi cài" command -v xrdp
 verify "không tìm thấy /etc/xrdp/xrdp.ini" test -f /etc/xrdp/xrdp.ini
 pass_step "$(xrdp -v 2>/dev/null | head -n1)"
 
-# --- Bước 4: Tạo chứng chỉ (cert) tự động [không bắt buộc] ---
+# --- Bước 5: Tạo chứng chỉ (cert) tự động [không bắt buộc] ---
 begin_step "Tạo chứng chỉ (cert) cho xrdp"
 if command -v xrdp-keygen &>/dev/null; then
   if sudo xrdp-keygen xrdp auto; then
@@ -350,13 +381,13 @@ else
   skip_step "không có xrdp-keygen — service tự tạo cert khi khởi động"
 fi
 
-# --- Bước 5: Kích hoạt dịch vụ xrdp ---
+# --- Bước 6: Kích hoạt dịch vụ xrdp ---
 begin_step "Kích hoạt dịch vụ xrdp"
 must sudo systemctl enable --now xrdp
 verify "xrdp chưa được enable" systemctl is-enabled xrdp
 pass_step
 
-# --- Bước 6: Đổi port trong /etc/xrdp/xrdp.ini ---
+# --- Bước 7: Đổi port trong /etc/xrdp/xrdp.ini ---
 begin_step "Đặt port xrdp = ${XRDP_PORT}"
 # Chỉ thay dòng 'port=' ĐẦU TIÊN (nằm trong [Globals]), không đụng port của session
 must sudo sed -i -E "0,/^port=.*/s//port=${XRDP_PORT}/" /etc/xrdp/xrdp.ini
@@ -364,7 +395,7 @@ verify "không thấy dòng port=${XRDP_PORT} trong /etc/xrdp/xrdp.ini" \
   grep -qx "port=${XRDP_PORT}" /etc/xrdp/xrdp.ini
 pass_step "port=${XRDP_PORT}"
 
-# --- Bước 7: Cấu hình ~/.xinitrc theo Desktop Environment ---
+# --- Bước 8: Cấu hình ~/.xinitrc theo Desktop Environment ---
 begin_step "Ghi ~/.xinitrc cho phiên desktop"
 # Nếu chọn KDE Plasma (X11) thì đảm bảo có kwin-x11 (Arch đã tách kwin-x11/kwin-wayland)
 if [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
@@ -386,14 +417,14 @@ verify "~/.xinitrc không chứa lệnh session mong muốn" \
   grep -qF "$SESSION_CMD" "$HOME/.xinitrc"
 pass_step "$SESSION_CMD"
 
-# --- Bước 8: Khởi động lại xrdp ---
+# --- Bước 9: Khởi động lại xrdp ---
 begin_step "Khởi động lại dịch vụ xrdp"
 must sudo systemctl restart xrdp
 sleep 2   # cho service kịp lên trước khi kiểm tra cờ
 verify "xrdp không ở trạng thái active (xem: journalctl -u xrdp)" systemctl is-active xrdp
 pass_step "active"
 
-# --- Bước 9: Tắt tường lửa ufw [không bắt buộc] ---
+# --- Bước 10: Tắt tường lửa ufw [không bắt buộc] ---
 begin_step "Tắt tường lửa ufw"
 if command -v ufw &>/dev/null; then
   must sudo ufw disable
@@ -402,7 +433,7 @@ else
   skip_step "không có ufw trên máy — không cần tắt"
 fi
 
-# --- Bước 10: Cấu hình IP tĩnh (tùy chọn) — qua nmcli (NetworkManager) ---
+# --- Bước 11: Cấu hình IP tĩnh (tùy chọn) — qua nmcli (NetworkManager) ---
 begin_step "Cấu hình IP tĩnh"
 if [[ "$STATIC_IP" == true ]]; then
   # Gộp DNS chính + phụ (nếu có)
@@ -423,14 +454,14 @@ else
   skip_step "người dùng chọn không đặt IP tĩnh (giữ DHCP)"
 fi
 
-# --- Bước 11: Tắt auto sleep / hibernate (giữ máy luôn thức cho XRDP) ---
+# --- Bước 12: Tắt auto sleep / hibernate (giữ máy luôn thức cho XRDP) ---
 begin_step "Tắt auto sleep / hibernate"
 must sudo systemctl mask hibernate.target hybrid-sleep.target sleep.target suspend-then-hibernate.target suspend.target
 verify "sleep.target chưa bị mask" \
   bash -c 'systemctl is-enabled sleep.target 2>/dev/null | grep -qx masked'
 pass_step "máy sẽ không tự ngủ"
 
-# --- Bước 12: Tắt khóa màn hình tự động (screen lock) ---
+# --- Bước 13: Tắt khóa màn hình tự động (screen lock) ---
 begin_step "Tắt khóa màn hình tự động"
 # KDE Plasma — tắt qua powerdevilrc (quản lý năng lượng) của user.
 # Dấu '--' trước giá trị là bắt buộc: thiếu nó, kwriteconfig hiểu '-1' là tùy chọn.
@@ -491,7 +522,7 @@ else
   skip_step "DE này không có bước riêng — đã dùng 'xset s off' trong ~/.xinitrc"
 fi
 
-# --- Bước 13: Đặt ảnh nền chuẩn [không bắt buộc] ---
+# --- Bước 14: Đặt ảnh nền chuẩn [không bắt buộc] ---
 begin_step "Đặt ảnh nền từ wallpaper-store"
 # Tải về tên cố định (không theo ngày như tên file nguồn) để file cấu hình khỏi phải đổi theo
 WALLPAPER_URL="https://raw.githubusercontent.com/devservertp/tp-net-client-wallpaper-store/refs/heads/staging/wallpaper-00.jpg"
@@ -538,7 +569,7 @@ else
   fi
 fi
 
-# --- Bước 14: Đổi mật khẩu cho user + root ---
+# --- Bước 15: Đổi mật khẩu cho user + root ---
 begin_step "Đổi mật khẩu cho user '$USER' và root"
 if [[ "$SET_PASS" == true ]]; then
   echo "$USER:$NEWPASS" | sudo chpasswd || die_step "không đổi được mật khẩu cho '$USER'"
@@ -548,7 +579,7 @@ else
   skip_step "người dùng chọn không đổi mật khẩu"
 fi
 
-# --- Bước 15: Cài đặt SCADA agent [không bắt buộc] ---
+# --- Bước 16: Cài đặt SCADA agent [không bắt buộc] ---
 begin_step "Cài đặt SCADA agent (scada.tpservers.com)"
 if curl -fsSL https://scada.tpservers.com/agent | sudo bash -s -- -pa scada; then
   pass_step
@@ -568,6 +599,7 @@ info "Cấu hình đã áp dụng:"
 echo "  • Port xrdp: ${XRDP_PORT}"
 echo "  • Phiên desktop: ${SESSION_CMD}"
 echo "  • Dịch vụ xrdp: $(systemctl is-active xrdp 2>/dev/null)"
+echo "  • Tailscale: ${TS_IP:-chưa kết nối}"
 if [[ "$STATIC_IP" == true ]]; then
   echo "  • IP tĩnh: ${ADDR} (GW ${GW}, DNS ${DNS_ALL})"
 else
@@ -580,6 +612,7 @@ echo "  • Ảnh nền: $([[ "${WALLPAPER_OK:-false}" == true ]] && echo "$WALL
 echo
 info "Hướng dẫn sử dụng:"
 echo "  • Kết nối RDP từ máy khác tới: <IP-máy-này>:${XRDP_PORT}"
+[[ -n "${TS_IP:-}" ]] && echo "  • Qua Tailscale: ${TS_IP}:${XRDP_PORT}"
 echo "  • Kiểm tra IP hiện tại bằng: ip a"
 
 # --- Thu hồi quyền sudo không mật khẩu (do post-install.sh cấp tạm) ---
