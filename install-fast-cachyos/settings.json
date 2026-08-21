@@ -29,6 +29,6 @@
     "root_pass": "Khanhnhat839",
     "kernel": "linux-cachyos",
     "desktop": "kde",
-    "bootloader": "grub",
-    "post_install": "/root/post-install.sh"
+    "bootloader": "grub"
+    // "post_install": "/root/post-install.sh"
 }
