@@ -339,7 +339,7 @@ if [[ -e /etc/systemd/system/display-manager.service ]]; then
 elif [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   info "Chưa có display manager — cài KDE Plasma..."
   # KDE đã thay SDDM bằng plasma-login-manager từ Plasma 6.5, nên không hardcode
-  # tên gói: hỏi repo xem cái nào có thật rồi mới dùng. Tên service trùng tên gói.
+  # tên gói: hỏi repo xem cái nào có thật rồi mới dùng.
   DM_PKG=""
   for p in plasma-login-manager sddm; do
     if pacman -Si "$p" &>/dev/null; then DM_PKG="$p"; break; fi
@@ -353,11 +353,31 @@ elif [[ "$SESSION_CMD" == "exec startplasma-x11" ]]; then
   # đụng vào gói ta liệt kê, nên khi bản mới kéo theo gói cũ hơn của gói đã cài
   # (vd gstreamer -1.1 của CachyOS vs -1 của extra) nó bó tay và báo
   # "breaks dependency". Với -Syu nó được nâng/hạ cả cụm cho khớp.
+  # Cả họ gst phải nằm trong CÙNG một transaction. Repo CachyOS tự mâu thuẫn: nó
+  # ship gst-libav/gst-plugins-bad/ugly bản rebuild '-1.1' đòi đúng
+  # 'gstreamer=1.28.6-1.1', nhưng không ship gstreamer/gst-plugins-base-libs bản
+  # '-1.1'. Không kê tên ra thì pacman chỉ được đụng vào gói ta xin, thấy phải hạ
+  # cấp gói khác là bỏ cuộc với 'breaks dependency' — đúng lỗi làm
+  # install_desktop_packages của cachyos-installer chết.
   must sudo pacman -Syu --needed --noconfirm \
-       plasma-meta "$DM_PKG" konsole dolphin xorg-server xorg-xinit
-  must sudo systemctl enable "$DM_PKG"
-  verify "$DM_PKG chưa được enable" test -e /etc/systemd/system/display-manager.service
-  pass_step "đã cài plasma-meta + $DM_PKG"
+       plasma-meta "$DM_PKG" konsole dolphin xorg-server xorg-xinit \
+       gstreamer gst-plugins-base gst-plugins-base-libs \
+       gst-libav gst-plugins-bad gst-plugins-bad-libs gst-plugins-ugly
+  # Tên unit KHÔNG chắc trùng tên gói: 'plasma-login-manager' cài xong mà
+  # 'systemctl enable plasma-login-manager' báo "Unit ... does not exist".
+  # Hỏi thẳng pacman xem gói vừa cài ra service nào, bỏ qua unit mẫu (@.service).
+  DM_SVC="$(pacman -Ql "$DM_PKG" 2>/dev/null | awk '{print $2}' \
+            | grep -E '/systemd/system/[^/@]+\.service$' | head -n1)"
+  DM_SVC="${DM_SVC##*/}"
+  if [[ -z "$DM_SVC" ]]; then
+    warn "$DM_PKG không kèm service nào — quay sang sddm"
+    must sudo pacman -S --needed --noconfirm sddm
+    DM_SVC=sddm.service
+  fi
+  info "Display manager service: $DM_SVC"
+  must sudo systemctl enable "$DM_SVC"
+  verify "$DM_SVC chưa được enable" test -e /etc/systemd/system/display-manager.service
+  pass_step "đã cài plasma-meta + $DM_SVC"
 else
   skip_step "chưa có display manager, DE này chưa có bước cài tự động — phải cài tay"
 fi

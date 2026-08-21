@@ -27,8 +27,10 @@ command -v curl &>/dev/null || { err "Không có curl trên live ISO."; exit 1; 
 command -v cachyos-installer &>/dev/null \
     || { err "Không thấy cachyos-installer — script này chỉ chạy từ live ISO CachyOS."; exit 1; }
 
-# Xóa log của lần chạy trước để không đọc nhầm kết quả cũ
-rm -f /tmp/post-install.log
+# Xóa log của lần chạy trước để không đọc nhầm kết quả cũ.
+# cachyos-install.log là log của installer (nó cũng nối output của post-install.sh
+# vào đây), post-install.log là bản riêng do post-install.sh tự ghi.
+rm -f /tmp/cachyos-install.log /tmp/post-install.log
 
 cd "$DEST"
 for f in "${FILES[@]}"; do
@@ -46,6 +48,11 @@ ls -l "${FILES[@]}"
 # Mirror đang sync dở cũng gây lỗi tương tự (thiếu file .sig).
 echo
 info "Làm tươi mirror + database gói trước khi cài..."
+# ĐỪNG đụng vào 'Architecture' trong pacman.conf. Repo CachyOS (kể cả core/extra
+# mà nó thay thế) chỉ chứa gói gắn nhãn x86_64_v3; ép Architecture = x86_64 làm
+# pacman từ chối chính những gói đó -> 'does not have a valid architecture' và
+# hỏng ngay ở base install. Để 'auto' cho pacman tự nhận đúng mức CPU.
+info "Kiến trúc gói: $(pacman-conf Architecture 2>/dev/null | paste -sd' ')"
 
 # -Syy (hai chữ y) ép tải lại toàn bộ database thay vì dùng bản cache trong ISO
 pacman -Syy --noconfirm || warn "pacman -Syy lỗi — vẫn thử đi tiếp"
