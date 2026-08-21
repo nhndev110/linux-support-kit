@@ -214,7 +214,7 @@ info "Tailscale để truy cập máy từ xa khi cần kiểm tra."
 # CHÚ Ý: key nhúng sẵn ở đây và repo là public — ai đọc được file cũng ghép được
 # máy của họ vào tailnet. Khi key lộ hoặc hết hạn thì xoay key mới ở
 # https://login.tailscale.com/admin/settings/keys rồi sửa lại dòng dưới.
-TS_DEFAULT_KEY="tskey-auth-kTSDmtxMRi11CNTRL-qrcAg68G1m6Yqt2Ge1Z7m6iAqigcA57K"
+TS_DEFAULT_KEY="tskey-auth-kTSVWqqid211CNTRL-BRNitiKMkUFNCDGg8xjsUFbYsQsXWkRL"
 # Thứ tự ưu tiên: nhập tay > biến môi trường TS_AUTHKEY > key mặc định ở trên
 TS_KEY="${TS_AUTHKEY:-$TS_DEFAULT_KEY}"
 read -rp "Tailscale auth key [Enter = dùng key có sẵn]: " TS_INPUT
